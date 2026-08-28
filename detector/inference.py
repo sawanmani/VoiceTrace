@@ -51,12 +51,11 @@ def load_model(checkpoint_path: Path, device: str = "cpu") -> Model:
         The model in eval mode.
     """
     if not checkpoint_path.exists():
-        print(f"ERROR: Checkpoint not found at {checkpoint_path}")
-        print()
-        print("You need to download the pretrained AASIST-L checkpoint.")
-        print("See the instructions printed by running:")
-        print("    python -m detector.inference --help")
-        sys.exit(1)
+        raise FileNotFoundError(
+            f"Checkpoint not found at {checkpoint_path}\n"
+            "You need to download the pretrained AASIST-L checkpoint.\n"
+            "Run: python -m detector.inference --help"
+        )
 
     model = Model(AASIST_L_CONFIG)
     model.load_state_dict(torch.load(checkpoint_path, map_location=device))
@@ -85,12 +84,14 @@ def load_audio(wav_path: str) -> np.ndarray:
         audio = audio.mean(axis=1)
         print(f"[INFO] Converted stereo → mono")
 
-    # Resample if needed (using scipy — no need for heavy librosa/numba)
+    # Resample if needed (using scipy polyphase)
     if sr != TARGET_SR:
-        from scipy.signal import resample as scipy_resample
-        target_len = int(len(audio) * TARGET_SR / sr)
-        print(f"[INFO] Resampling {sr}Hz → {TARGET_SR}Hz ({len(audio)} → {target_len} samples)")
-        audio = scipy_resample(audio, target_len).astype(np.float32)
+        from scipy.signal import resample_poly
+        from math import gcd
+        g = gcd(TARGET_SR, sr)
+        up, down = TARGET_SR // g, sr // g
+        print(f"[INFO] Resampling {sr}Hz → {TARGET_SR}Hz")
+        audio = resample_poly(audio, up, down).astype(np.float32)
 
     return audio.astype(np.float32)
 

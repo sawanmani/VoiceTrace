@@ -1,0 +1,43 @@
+# VoiceTrace — Runtime Configuration
+# All thresholds and weights are tunable here. No hardcoding in source files.
+
+detection:
+  window_sec: 1.0          # length of each audio window sent to AASIST-L
+  stride_sec: 0.5          # hop between windows (50% overlap)
+  smoothing_alpha: 0.35    # EMA alpha — lower = smoother, higher = more reactive
+  target_sr: 16000         # AASIST-L expects 16 kHz mono
+  nb_samp: 64600           # ~4.04 s at 16 kHz — AASIST-L fixed input length
+
+liveness:
+  silence_threshold: 0.002       # RMS below this = silence
+  clipping_threshold: 0.98       # abs amplitude above this = clipping (TTS artifact)
+  clipping_fraction_limit: 0.01  # >1% clipped samples → suspicious
+  noise_floor_variance_min: 1e-6 # real mics always have some variance
+  zcr_min: 0.01                  # zero-crossing rate thresholds
+  zcr_max: 0.45
+
+risk:
+  threshold_medium: 35     # risk_score >= this → "medium" band
+  threshold_high: 65       # risk_score >= this → "high" band
+  weights:
+    spoof_prob: 0.60        # AASIST-L raw output (primary signal)
+    liveness: 0.20          # liveness heuristics
+    caller_context: 0.10   # caller familiarity / prior call history
+    transaction_context: 0.10  # is a sensitive action being requested?
+
+recommendations:
+  low:    "Voice appears genuine. No action required — proceed normally."
+  medium: "Borderline signal detected. Request additional identity verification before proceeding."
+  high:   "HIGH RISK: Clone signature detected. Recommend callback on a known number before approving any transfer or disclosure."
+
+server:
+  host: "0.0.0.0"
+  port: 8000
+  cors_origins:
+    - "http://localhost:5173"
+    - "http://127.0.0.1:5173"
+
+logging:
+  level: "INFO"
+  log_scores: true          # log score events (no raw audio)
+  log_raw_audio: false      # must stay false — privacy-by-design

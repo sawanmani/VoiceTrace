@@ -1,91 +1,145 @@
-import json
-from pathlib import Path
+"""
+VoiceTrace — server/risk_engine.py
+
+Combines the raw AASIST-L spoof_prob and liveness_score with optional call
+context into one composite 0–100 risk score plus an explainable breakdown.
+
+Design:
+  - All weights and thresholds come from config.yaml (NFR-5).
+  - Every RiskEvent carries sub-scores, not just a single number (NFR-3).
+  - Generating recommendation text here keeps the dashboard dumb — it only
+    renders what the server sends (per the ARCHITECTURE.md contract).
+"""
+
+from __future__ import annotations
+
+import time
+from dataclasses import dataclass, field
+from typing import Dict, Optional
+
+from detector.streaming import DetectionResult
+from server.config import (
+    RECOMMENDATIONS,
+    THRESHOLD_HIGH,
+    THRESHOLD_MEDIUM,
+    WEIGHTS,
+)
 
 
-class RiskEngine:
-    def __init__(self, config_path: str = "config/risk_weights.json"):
-        # Load weights from config
-        self.weights = self._load_weights(config_path)
+# ── Output type ────────────────────────────────────────────────────────────
 
-    def _load_weights(self, config_path: str) -> dict:
-        path = Path(config_path)
-        if not path.exists():
-            # Fallback to default if not found
-            return {
-                "model_confidence": 0.60,
-                "caller_context_score": 0.20,
-                "transaction_context_score": 0.15,
-                "historical_anomaly_score": 0.05
-            }
-        with open(path, "r") as f:
-            return json.load(f)
+@dataclass
+class RiskEvent:
+    """
+    Scored event pushed to the dashboard over WebSocket.
+    Shape matches the data contract in ARCHITECTURE.md § 3.
+    """
+    risk_score: int                       # 0–100
+    band: str                             # "low" | "medium" | "high"
+    signals: Dict[str, float]             # named sub-scores (all 0–1)
+    recommendation: str
+    call_id: str
+    window_index: int
+    latency_ms: float
+    timestamp: float = field(default_factory=time.time)
 
-    def calculate_risk(self, detector_output: dict, call_context: dict) -> dict:
-        """
-        Accepts detector output (smoothed spoof prob + sub-scores) and
-        call_context (caller_familiarity, transaction_amount, historical_anomaly),
-        and returns the exact JSON contract.
-        """
-        model_confidence = detector_output.get("smoothed_spoof_prob", detector_output.get("spoof_prob", 0.0))
-        caller_score = call_context.get("caller_context_score", 0.0)
-        transaction_score = call_context.get("transaction_context_score", 0.0)
-        historical_score = call_context.get("historical_anomaly_score", 0.0)
-
-        # Apply Risk Formula
-        risk_score_raw = (
-            self.weights["model_confidence"] * model_confidence +
-            self.weights["caller_context_score"] * caller_score +
-            self.weights["transaction_context_score"] * transaction_score +
-            self.weights["historical_anomaly_score"] * historical_score
-        )
-        
-        # Scale to 0-100
-        risk_score = round(risk_score_raw * 100)
-
-        # Determine band & recommendation
-        if risk_score < 40:
-            band = "low"
-            recommendation = "Proceed safely."
-        elif risk_score < 70:
-            band = "medium"
-            recommendation = "Verify identity with a secondary method (e.g., OTP)."
-        else:
-            band = "high"
-            recommendation = "URGENT: Likely spoofed call. Suspend transaction immediately."
-
-        # Construct exact JSON shape
+    def to_dict(self) -> dict:
         return {
-            "risk_score": risk_score,
-            "band": band,
-            "signals": {
-                "spectral_artifact_score": round(detector_output.get("spectral_artifact_score", 0.0), 2),
-                "prosody_irregularity_score": round(detector_output.get("prosody_irregularity_score", 0.0), 2),
-                "caller_context_score": round(caller_score, 2),
-                "transaction_context_score": round(transaction_score, 2)
-            },
-            "recommendation": recommendation
+            "risk_score": self.risk_score,
+            "band": self.band,
+            "signals": self.signals,
+            "recommendation": self.recommendation,
+            "call_id": self.call_id,
+            "window_index": self.window_index,
+            "latency_ms": round(self.latency_ms, 1),
+            "timestamp": self.timestamp,
         }
 
 
-if __name__ == "__main__":
-    engine = RiskEngine()
+# ── Call context ───────────────────────────────────────────────────────────
 
-    print("=== Testing Risk Engine ===")
-    
-    # Test Case 1: Low Risk (Genuine)
-    det_out_1 = {"smoothed_spoof_prob": 0.05, "spectral_artifact_score": 0.02, "prosody_irregularity_score": 0.03}
-    ctx_1 = {"caller_context_score": 0.1, "transaction_context_score": 0.2, "historical_anomaly_score": 0.0}
-    res_1 = engine.calculate_risk(det_out_1, ctx_1)
-    print("\nTest 1 (Low Risk):", json.dumps(res_1, indent=2))
+@dataclass
+class CallContext:
+    """
+    Optional contextual signals that shift the composite score.
+    Defaults represent a neutral / unknown call context.
+    """
+    caller_familiarity: float = 0.5   # 0 = unknown, 1 = verified known contact
+    transaction_risk: float = 0.5     # 0 = no action, 1 = high-value transfer
 
-    # Test Case 2: Medium Risk (Suspicious context, weak model signal)
-    det_out_2 = {"smoothed_spoof_prob": 0.40, "spectral_artifact_score": 0.45, "prosody_irregularity_score": 0.35}
-    ctx_2 = {"caller_context_score": 0.6, "transaction_context_score": 0.8, "historical_anomaly_score": 0.5}
-    res_2 = engine.calculate_risk(det_out_2, ctx_2)
-    print("\nTest 2 (Medium Risk):", json.dumps(res_2, indent=2))
 
-    # Test Case 3: High Risk (Definite spoof)
-    det_out_3 = {"smoothed_spoof_prob": 0.95, "spectral_artifact_score": 0.98, "prosody_irregularity_score": 0.92}
-    ctx_3 = {"caller_context_score": 0.9, "transaction_context_score": 0.7, "historical_anomaly_score": 0.8}
-    res_3 = engine.calculate_risk(det_out_3, ctx_3)
-    print("\nTest 3 (High Risk):", json.dumps(res_3, indent=2))
+# ── Risk Engine ────────────────────────────────────────────────────────────
+
+class RiskEngine:
+    """
+    Computes a composite risk score from detector output + call context.
+
+    Score formula (weights from config.yaml):
+        composite = (
+            w_spoof    * smoothed_spoof_prob
+          + w_liveness * (1 - liveness_score)   ← high liveness = lower risk
+          + w_caller   * (1 - caller_familiarity)
+          + w_txn      * transaction_risk
+        )
+
+    Scaled to 0–100 for dashboard display.
+    """
+
+    def score(
+        self,
+        detection: DetectionResult,
+        call_id: str,
+        context: Optional[CallContext] = None,
+    ) -> RiskEvent:
+        """
+        Produce a RiskEvent from a DetectionResult.
+
+        Args:
+            detection: Output of StreamingDetector._score_window().
+            call_id:   Identifier for the current call session.
+            context:   Optional call context; uses neutral defaults if None.
+        Returns:
+            RiskEvent ready to serialise and push over WebSocket.
+        """
+        if context is None:
+            context = CallContext()
+
+        w = WEIGHTS
+        composite = (
+            w["spoof_prob"]          * detection.smoothed_spoof_prob
+            + w["liveness"]          * (1.0 - detection.liveness_score)
+            + w["caller_context"]    * (1.0 - context.caller_familiarity)
+            + w["transaction_context"] * context.transaction_risk
+        )
+
+        # Clamp to [0, 1] and scale to 0–100
+        composite = float(max(0.0, min(1.0, composite)))
+        risk_score = int(round(composite * 100))
+
+        # Determine band
+        if risk_score >= THRESHOLD_HIGH:
+            band = "high"
+        elif risk_score >= THRESHOLD_MEDIUM:
+            band = "medium"
+        else:
+            band = "low"
+
+        # Build signals dict — merge model sub-scores with context signals
+        signals = {
+            **detection.signals,
+            "liveness_score": round(detection.liveness_score, 4),
+            "caller_context_score": round(1.0 - context.caller_familiarity, 4),
+            "transaction_context_score": round(context.transaction_risk, 4),
+        }
+
+        recommendation = RECOMMENDATIONS[band]
+
+        return RiskEvent(
+            risk_score=risk_score,
+            band=band,
+            signals=signals,
+            recommendation=recommendation,
+            call_id=call_id,
+            window_index=detection.window_index,
+            latency_ms=detection.latency_ms,
+        )
