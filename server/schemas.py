@@ -13,8 +13,9 @@ class RiskEventSchema(BaseModel):
     Matches the schema outlined in ARCHITECTURE.md.
     """
     risk_score: int
-    band: Literal["low", "medium", "high"]
+    band: Literal["low", "medium", "high", "uncertain"]
     signals: Dict[str, float]
+    caller_identity_match_score: Optional[float] = None
     recommendation: str
     call_id: str
     window_index: int
@@ -26,6 +27,15 @@ class AnalyzeResponse(BaseModel):
     windows: List[RiskEventSchema]
 
 class ContextUpdateMessage(BaseModel):
-    type: Literal["context"]
+    type: Literal["context", "trigger_challenge"]
     caller_familiarity: Optional[float] = None
     transaction_risk: Optional[float] = None
+
+class ChallengeAudioMessage(BaseModel):
+    type: Literal["challenge_audio"]
+    audio_b64: str
+    prompt: str
+
+class FeedbackRequest(BaseModel):
+    call_id: str
+    label: Literal["genuine", "spoof"]

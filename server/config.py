@@ -25,7 +25,7 @@ def _load() -> Dict[str, Any]:
             "Run from the project root or set VOICETRACE_CONFIG env var."
         )
     path = Path(os.environ.get("VOICETRACE_CONFIG", str(_CONFIG_PATH)))
-    with open(path, "r") as f:
+    with open(path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 
@@ -47,14 +47,16 @@ ZCR_MIN: float = float(_cfg["liveness"]["zcr_min"])
 ZCR_MAX: float = float(_cfg["liveness"]["zcr_max"])
 
 # ── Risk ───────────────────────────────────────────────────────────────────
-THRESHOLD_MEDIUM: int = _cfg["risk"]["threshold_medium"]
-THRESHOLD_HIGH: int = _cfg["risk"]["threshold_high"]
-WEIGHTS: Dict[str, float] = _cfg["risk"]["weights"]
+THRESHOLD_UNCERTAIN: int = _cfg["risk_thresholds"]["uncertain"]
+THRESHOLD_MEDIUM: int = _cfg["risk_thresholds"]["medium"]
+THRESHOLD_HIGH: int = _cfg["risk_thresholds"]["high"]
+WEIGHTS: Dict[str, float] = _cfg["risk_thresholds"]["weights"]
 RECOMMENDATIONS: Dict[str, str] = _cfg["recommendations"]
 
 # ── Server ─────────────────────────────────────────────────────────────────
 SERVER_HOST: str = _cfg["server"]["host"]
 SERVER_PORT: int = _cfg["server"]["port"]
+MAX_CALLS: int = _cfg["server"].get("max_calls", 50)
 CORS_ORIGINS: list = _cfg["server"]["cors_origins"]
 
 # ── Logging ────────────────────────────────────────────────────────────────

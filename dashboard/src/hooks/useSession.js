@@ -18,6 +18,9 @@ export function useSession() {
   const windowCountRef = useRef(0)
 
   const handleEvent = useCallback((data) => {
+    // Ignore non-RiskEvent control messages (e.g. challenge_audio, challenge_result)
+    if (data.type && data.type !== 'risk_event') return
+
     const score = data.risk_score ?? 0
     const band = data.band ?? 'low'
 
@@ -39,12 +42,14 @@ export function useSession() {
 
     const t = formatTime(new Date())
     const messages = {
-      low: ['Genuine voice detected', 'Speaker verified', 'Natural speech confirmed'],
-      medium: ['Borderline signal — monitoring', 'Ambiguous pattern detected'],
-      high: ['⚠ Clone signature detected', '🚨 High spoof probability', 'AI-generated voice suspected'],
+      low:      ['Genuine voice detected', 'Speaker verified', 'Natural speech confirmed'],
+      uncertain: ['Borderline — monitoring closely', 'Ambiguous pattern, continuing analysis'],
+      medium:   ['Borderline signal — monitoring', 'Ambiguous pattern detected'],
+      high:     ['\u26a0 Clone signature detected', '\U0001f6a8 High spoof probability', 'AI-generated voice suspected'],
     }
-    const msgList = messages[band] || messages.low
-    const msg = msgList[Math.floor(Math.random() * msgList.length)]
+    const msgList = messages[band] ?? messages.low
+    // Use window_index for deterministic selection (avoids Math.random in render)
+    const msg = msgList[(data.window_index ?? 0) % msgList.length]
 
     setHistory(h => [...h, { t: t.slice(3), score }].slice(-HISTORY_MAX_WINDOWS))
     setEvents(ev => [{
@@ -70,10 +75,15 @@ export function useSession() {
   }, [])
 
   const finalizeCall = useCallback((callId, durationSec) => {
+    const peak = peakRiskRef.current
+    const band = peak >= THRESHOLD_HIGH ? 'high'
+               : peak >= THRESHOLD_MEDIUM ? 'medium'
+               : peak >= (THRESHOLD_MEDIUM / 2) ? 'uncertain'
+               : 'low'
     setCompletedCall({
       call_id: callId || 'call-unknown',
-      peak_risk: peakRiskRef.current,
-      band: peakRiskRef.current >= THRESHOLD_HIGH ? 'high' : peakRiskRef.current >= THRESHOLD_MEDIUM ? 'medium' : 'low',
+      peak_risk: peak,
+      band,
       windows: windowCountRef.current,
       duration_sec: durationSec,
       time: formatTime(new Date()),

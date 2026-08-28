@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react'
 import { genCallId } from '../lib/utils'
-import { WS_BASE, MIC_SAMPLE_RATE, MIC_BUFFER_SIZE, DEMO_SEQUENCE, DEMO_INTERVAL_MS, THRESHOLD_HIGH, THRESHOLD_MEDIUM } from '../lib/constants'
+import { WS_BASE, MIC_SAMPLE_RATE, MIC_BUFFER_SIZE, DEMO_SEQUENCE, DEMO_INTERVAL_MS, THRESHOLD_HIGH, THRESHOLD_MEDIUM, THRESHOLD_UNCERTAIN } from '../lib/constants'
 
 export function useMicStream(onEvent, finalizeCall) {
   const [active, setActive] = useState(false)
@@ -21,7 +21,10 @@ export function useMicStream(onEvent, finalizeCall) {
       const base = DEMO_SEQUENCE[_demoIdx.current % DEMO_SEQUENCE.length] + (Math.random() - 0.5) * 0.06
       const clamped = Math.max(0, Math.min(1, base))
       const score = Math.round(clamped * 100)
-      const band = score >= THRESHOLD_HIGH ? 'high' : score >= THRESHOLD_MEDIUM ? 'medium' : 'low'
+      const band = score >= THRESHOLD_HIGH ? 'high'
+                 : score >= THRESHOLD_MEDIUM ? 'medium'
+                 : score >= THRESHOLD_UNCERTAIN ? 'uncertain'
+                 : 'low'
       
       onEvent({
         risk_score: score,
@@ -69,21 +72,32 @@ export function useMicStream(onEvent, finalizeCall) {
       const source = ctx.createMediaStreamSource(stream)
       micRef.current = stream
 
+      // NOTE: ScriptProcessor is deprecated but widely supported.
+      // Future: replace with AudioWorklet for better performance and no deprecation warning.
       const proc = ctx.createScriptProcessor(MIC_BUFFER_SIZE, 1, 1)
       processorRef.current = proc
 
       proc.onaudioprocess = (e) => {
         const pcm = e.inputBuffer.getChannelData(0)
         if (ws.readyState === WebSocket.OPEN) {
-          ws.send(pcm.buffer.slice())
+          // Use byteOffset + byteLength to correctly slice SharedArrayBuffer views
+          ws.send(pcm.buffer.slice(pcm.byteOffset, pcm.byteOffset + pcm.byteLength))
         }
       }
 
       source.connect(proc)
-      proc.connect(ctx.destination)
+      // Route to a muted GainNode instead of ctx.destination to prevent
+      // microphone audio being played back through speakers (feedback loop).
+      const muteNode = ctx.createGain()
+      muteNode.gain.value = 0
+      proc.connect(muteNode)
+      muteNode.connect(ctx.destination)
       setActive(true)
     } catch (err) {
-      console.warn('Mic unavailable:', err.message)
+      // Close the WS opened above if mic fails, then fallback to demo
+      if (ws.readyState !== WebSocket.CLOSED) ws.close()
+      callWsRef.current = null
+      console.warn('Mic unavailable — starting demo mode:', err.message)
       setActive(true)
       _startDemo(id)
     }

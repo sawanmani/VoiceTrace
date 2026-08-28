@@ -22,6 +22,7 @@ from server.config import (
     RECOMMENDATIONS,
     THRESHOLD_HIGH,
     THRESHOLD_MEDIUM,
+    THRESHOLD_UNCERTAIN,
     WEIGHTS,
 )
 
@@ -35,12 +36,13 @@ class RiskEvent:
     Shape matches the data contract in ARCHITECTURE.md § 3.
     """
     risk_score: int                       # 0–100
-    band: str                             # "low" | "medium" | "high"
+    band: str                             # "low" | "uncertain" | "medium" | "high"
     signals: Dict[str, float]             # named sub-scores (all 0–1)
     recommendation: str
     call_id: str
     window_index: int
     latency_ms: float
+    caller_identity_match_score: Optional[float] = None
     timestamp: float = field(default_factory=time.time)
 
     def to_dict(self) -> dict:
@@ -48,6 +50,7 @@ class RiskEvent:
             "risk_score": self.risk_score,
             "band": self.band,
             "signals": self.signals,
+            "caller_identity_match_score": self.caller_identity_match_score,
             "recommendation": self.recommendation,
             "call_id": self.call_id,
             "window_index": self.window_index,
@@ -60,12 +63,10 @@ class RiskEvent:
 
 @dataclass
 class CallContext:
-    """
-    Optional contextual signals that shift the composite score.
-    Defaults represent a neutral / unknown call context.
-    """
-    caller_familiarity: float = 0.5   # 0 = unknown, 1 = verified known contact
-    transaction_risk: float = 0.5     # 0 = no action, 1 = high-value transfer
+    """Optional contextual signals that influence risk weighting."""
+    caller_familiarity: float = 0.5    # 0 = unknown, 1 = known/whitelisted
+    transaction_risk: float = 0.5      # 0 = routine, 1 = high value/sensitive
+    caller_identity_match_score: Optional[float] = None # F3 voiceprint match
 
 
 # ── Risk Engine ────────────────────────────────────────────────────────────
@@ -117,12 +118,15 @@ class RiskEngine:
         risk_score = int(round(composite * 100))
 
         # Determine band
+        band = "low"
         if risk_score >= THRESHOLD_HIGH:
             band = "high"
         elif risk_score >= THRESHOLD_MEDIUM:
             band = "medium"
-        else:
-            band = "low"
+        elif risk_score >= THRESHOLD_UNCERTAIN:
+            band = "uncertain"
+
+        recommendation = RECOMMENDATIONS.get(band, RECOMMENDATIONS["low"])
 
         # Build signals dict — merge model sub-scores with context signals
         signals = {
@@ -132,8 +136,6 @@ class RiskEngine:
             "transaction_context_score": round(context.transaction_risk, 4),
         }
 
-        recommendation = RECOMMENDATIONS[band]
-
         return RiskEvent(
             risk_score=risk_score,
             band=band,
@@ -142,4 +144,5 @@ class RiskEngine:
             call_id=call_id,
             window_index=detection.window_index,
             latency_ms=detection.latency_ms,
+            caller_identity_match_score=context.caller_identity_match_score,
         )

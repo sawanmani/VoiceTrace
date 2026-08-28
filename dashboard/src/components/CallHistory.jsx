@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { getRiskColor, formatDuration } from '../lib/utils'
 import { CALL_HISTORY_MAX } from '../lib/constants'
+import FeedbackButtons from './FeedbackButtons'
 
 const STORAGE_KEY = 'voicetrace_call_history'
 
@@ -98,6 +99,7 @@ export default function CallHistory({ currentCall }) {
                 <div className="history-meta">
                   {call.time} · {call.windows} windows · {formatDuration(call.duration_sec)}
                 </div>
+                <FeedbackButtons callId={call.call_id} />
               </div>
               <div className="history-score" style={{ color: getRiskColor(call.peak_risk) }}>
                 {call.peak_risk}

@@ -175,15 +175,22 @@ def _extract_signals(last_hidden: torch.Tensor) -> Dict[str, float]:
     return scores
 
 
-# ── Global Model Cache ───────────────────────────────────────────────────────
-
-_cached_model = None
+# ── Global Model Cache (delegates to _model_cache to avoid dual instances) ──
 
 def _get_model(checkpoint: Path, device: str):
-    global _cached_model
-    if _cached_model is None:
-        _cached_model = load_model(checkpoint, device)
-    return _cached_model
+    """
+    Prefer the pre-warmed instance from _model_cache if available.
+    Falls back to loading directly (useful in tests / push_full without server).
+    """
+    try:
+        from server._model_cache import get_aasist  # noqa: PLC0415
+        model = get_aasist()
+        if model is not None:
+            return model
+    except ImportError:
+        pass
+    # Fallback: load directly (test / offline use)
+    return load_model(checkpoint, device)
 
 # ── Streaming Detector ──────────────────────────────────────────────────────
 

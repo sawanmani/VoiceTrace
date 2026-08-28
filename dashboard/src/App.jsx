@@ -27,17 +27,17 @@ export default function App() {
   // Session state
   const { state, actions } = useSession()
 
-  // WS connection for scores
-  const { connected, reconnecting } = useWebSocket(
-    `${WS_BASE}/ws/score`,
-    actions.handleEvent,
-  )
-
   // Mic streaming
   const { active, startMic, stopMic } = useMicStream(
     actions.handleEvent, 
     actions.finalizeCall
   )
+
+  // Connect to global score stream ONLY when not in an active mic call.
+  // useMicStream already subscribes to /ws/call/{id} when active — connecting
+  // both would double-count every event (sessionCount, highRiskCount, chart).
+  const scoreWsUrl = active ? null : `${WS_BASE}/ws/score`
+  const { connected, reconnecting } = useWebSocket(scoreWsUrl, actions.handleEvent)
 
   const handleClear = useCallback(() => {
     stopMic()

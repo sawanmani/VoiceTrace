@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import base64
 import io
-import struct
+import logging
 from typing import Tuple
 
 import numpy as np
@@ -49,6 +49,62 @@ def _resample(audio: np.ndarray, from_sr: int, to_sr: int) -> np.ndarray:
     up, down = to_sr // g, from_sr // g
     resampled = resample_poly(audio, up, down)
     return resampled.astype(np.float32)
+
+
+def _ulaw_encode(sample: float) -> int:
+    """
+    ITU-T G.711 µ-law compressor (single sample, float [-1,1] → 8-bit int).
+    Uses the exact logarithmic companding formula, NOT uniform quantization.
+    """
+    MU = 255.0
+    sample = float(np.clip(sample, -1.0, 1.0))
+    sign = 1 if sample >= 0 else -1
+    magnitude = abs(sample)
+    compressed = sign * (np.log1p(MU * magnitude) / np.log1p(MU))
+    return int(np.round(compressed * 127)) & 0xFF
+
+
+def _ulaw_decode(code: int) -> float:
+    """
+    ITU-T G.711 µ-law expander (8-bit int → float [-1,1]).
+    """
+    MU = 255.0
+    code = float(code) / 127.0
+    sign = 1.0 if code >= 0 else -1.0
+    magnitude = abs(code)
+    return sign * (np.expm1(magnitude * np.log1p(MU)) / MU)
+
+
+def _simulate_telephony(audio: np.ndarray, orig_sr: int) -> np.ndarray:
+    """
+    In-memory simulation of a G.711 µ-law telephony bottleneck.
+
+    Pipeline:
+      1. Downsample to 8 kHz (telephone bandwidth limit)
+      2. Apply real ITU-T G.711 µ-law companding (NOT uniform quantization)
+      3. Upsample back to 16 kHz for AASIST-L
+
+    This gives true domain parity with audio arriving from Twilio SIP trunks.
+    """
+    if orig_sr > 8000:
+        audio_8k = _resample(audio, orig_sr, 8000)
+    else:
+        audio_8k = audio.copy()
+
+    # Vectorized µ-law encode → decode (true companding round-trip)
+    MU = 255.0
+    sign = np.sign(audio_8k)
+    magnitude = np.abs(audio_8k).clip(0.0, 1.0)
+    # Encode: logarithmic compression
+    encoded = sign * (np.log1p(MU * magnitude) / np.log1p(MU))
+    # Quantize to 8-bit (256 levels)
+    quantized = np.round(encoded * 127.0) / 127.0
+    # Decode: logarithmic expansion
+    magnitude_q = np.abs(quantized)
+    degraded = np.sign(quantized) * (np.expm1(magnitude_q * np.log1p(MU)) / MU)
+    degraded = degraded.astype(np.float32)
+
+    return _resample(degraded, 8000, TARGET_SR)
 
 
 def _lufs_normalize(audio: np.ndarray) -> np.ndarray:
@@ -87,7 +143,7 @@ def bytes_to_pcm(data: bytes, sr: int = TARGET_SR) -> Tuple[np.ndarray, int]:
         # Try soundfile first (handles WAV, FLAC, etc.)
         audio, file_sr = sf.read(io.BytesIO(data), dtype="float32")
         audio = _to_mono(audio)
-        audio = _resample(audio, file_sr, TARGET_SR)
+        audio = _simulate_telephony(audio, file_sr)
         audio = _lufs_normalize(audio)
         return audio, TARGET_SR
     except Exception:
@@ -98,7 +154,7 @@ def bytes_to_pcm(data: bytes, sr: int = TARGET_SR) -> Tuple[np.ndarray, int]:
         n_samples = len(data) // 4
         audio = np.frombuffer(data, dtype="<f4")[:n_samples]
         audio = _to_mono(audio.reshape(-1))
-        audio = _resample(audio, sr, TARGET_SR)
+        audio = _simulate_telephony(audio, sr)
         audio = _lufs_normalize(audio)
         return audio, TARGET_SR
     except Exception as e:
@@ -115,7 +171,7 @@ def file_bytes_to_pcm(data: bytes) -> np.ndarray:
     """
     audio, file_sr = sf.read(io.BytesIO(data), dtype="float32")
     audio = _to_mono(audio)
-    audio = _resample(audio, file_sr, TARGET_SR)
+    audio = _simulate_telephony(audio, file_sr)
     audio = _lufs_normalize(audio)
     return audio
 

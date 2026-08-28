@@ -16,9 +16,10 @@ liveness:
   zcr_min: 0.01                  # zero-crossing rate thresholds
   zcr_max: 0.45
 
-risk:
-  threshold_medium: 35     # risk_score >= this → "medium" band
-  threshold_high: 65       # risk_score >= this → "high" band
+risk_thresholds:
+  uncertain: 25   # 25-34 -> uncertain (F6 calibration)
+  medium: 35      # 35-64 -> medium
+  high: 65        # 65-100 -> high
   weights:
     spoof_prob: 0.60        # AASIST-L raw output (primary signal)
     liveness: 0.20          # liveness heuristics
@@ -26,13 +27,15 @@ risk:
     transaction_context: 0.10  # is a sensitive action being requested?
 
 recommendations:
-  low:    "Voice appears genuine. No action required — proceed normally."
+  low: "Voice appears genuine. No action required."
+  uncertain: "Borderline signal. Inform user and ask verification questions."
   medium: "Borderline signal detected. Request additional identity verification before proceeding."
   high:   "HIGH RISK: Clone signature detected. Recommend callback on a known number before approving any transfer or disclosure."
 
 server:
   host: "0.0.0.0"
   port: 8000
+  max_calls: 50                # Fix 4: maximum concurrent WebSocket calls before rejection
   cors_origins:
     - "http://localhost:5173"
     - "http://127.0.0.1:5173"

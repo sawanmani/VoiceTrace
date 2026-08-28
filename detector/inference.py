@@ -99,17 +99,17 @@ def load_audio(wav_path: str) -> np.ndarray:
 def pad_or_trim(audio: np.ndarray, target_len: int) -> np.ndarray:
     """
     AASIST expects exactly `nb_samp` (64600) samples.
+    - If empty: return silence.
     - If shorter: repeat-pad to fill.
     - If longer: take the first `target_len` samples.
-
-    This matches the official AASIST data loading behavior from data_utils.py
-    in the clovaai/aasist repo.
     """
+    if len(audio) == 0:
+        return np.zeros(target_len, dtype=np.float32)
     if len(audio) < target_len:
-        # Repeat-pad (tile the audio until it's long enough, then trim)
         repeats = (target_len // len(audio)) + 1
         audio = np.tile(audio, repeats)
     return audio[:target_len]
+
 
 
 def infer(model: Model, audio: np.ndarray, device: str = "cpu") -> float:

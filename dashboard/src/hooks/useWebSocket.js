@@ -23,10 +23,14 @@ export function useWebSocket(url, onEvent) {
   const mountedRef = useRef(true)
 
   const connect = useCallback(() => {
-    if (!mountedRef.current) return
+    // null URL = intentionally disconnected (e.g. mic call is active)
+    if (!mountedRef.current || !url) return
 
     try {
-      const ws = new WebSocket(url)
+      // Append API key if configured
+      const apiKey = import.meta.env.VITE_API_KEY ?? ''
+      const wsUrl = apiKey ? `${url}?api_key=${encodeURIComponent(apiKey)}` : url
+      const ws = new WebSocket(wsUrl)
       wsRef.current = ws
 
       ws.onopen = () => {
@@ -36,10 +40,15 @@ export function useWebSocket(url, onEvent) {
         retryDelay.current = 1000
       }
 
-      ws.onclose = () => {
+      ws.onclose = (ev) => {
         if (!mountedRef.current) return
         setConnected(false)
         wsRef.current = null
+        // Don't reconnect on auth rejection (1008) — would infinite loop
+        if (ev.code === 1008) {
+          console.error('WebSocket auth rejected (1008). Check VITE_API_KEY.')
+          return
+        }
         // Exponential backoff reconnect (max 10s)
         const delay = Math.min(retryDelay.current, 10000)
         retryDelay.current = delay * 1.5
@@ -48,13 +57,17 @@ export function useWebSocket(url, onEvent) {
       }
 
       ws.onerror = () => {
-        ws.close()
+        // Do NOT call ws.close() here — browser fires onclose automatically
+        // after onerror. Calling close() here causes duplicate onclose events
+        // which leads to double reconnect timers.
       }
 
       ws.onmessage = (ev) => {
         if (!mountedRef.current) return
         try {
           const data = JSON.parse(ev.data)
+          // Ignore non-RiskEvent messages (e.g. challenge_audio frames)
+          if (data.type && data.type !== 'risk_event') return
           onEvent(data)
         } catch (_) { /* not JSON */ }
       }
