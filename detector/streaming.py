@@ -20,6 +20,8 @@ Design notes:
 
 from __future__ import annotations
 
+import collections
+import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -196,16 +198,8 @@ def _get_model(checkpoint: Path, device: str):
 
 class StreamingDetector:
     """
-    Buffers a continuous PCM stream into overlapping windows and runs
-    AASIST-L inference on each window.
-
-    Usage:
-        detector = StreamingDetector()
-        for chunk in audio_source:          # raw float32 PCM at 16 kHz
-            result = detector.push(chunk)   # returns DetectionResult or None
-            if result:
-                handle(result)
-        detector.reset()                    # clears buffer for a new call
+    Buffers a continuous PCM stream into overlapping windows using a deque.
+    Inference is decoupled and intended to be processed by a BatchWorker.
     """
 
     def __init__(
@@ -215,12 +209,13 @@ class StreamingDetector:
     ):
         self._checkpoint = checkpoint or DEFAULT_CHECKPOINT
         self._device = device or ("cuda" if torch.cuda.is_available() else "cpu")
-        self._model = _get_model(self._checkpoint, self._device)
+        self._model = None  # Lazy loaded if push_full is called
 
         self._liveness = LivenessChecker()
 
-        # Audio ring buffer — stores raw float32 samples
-        self._buffer: np.ndarray = np.array([], dtype=np.float32)
+        # Audio ring buffer — stores chunks using deque for fast O(1) appends
+        self._chunks = collections.deque()
+        self._buffered_samples = 0
         self._window_samples = int(WINDOW_SEC * TARGET_SR)
         self._stride_samples = int(STRIDE_SEC * TARGET_SR)
 
@@ -229,86 +224,49 @@ class StreamingDetector:
         self._alpha = SMOOTHING_ALPHA
 
         self._window_index = 0
+        self._lock = threading.Lock()
 
     # ── Public API ─────────────────────────────────────────────────────────
 
-    def push(self, chunk: np.ndarray) -> List[DetectionResult]:
+    def push(self, chunk: np.ndarray) -> None:
         """
         Feed raw PCM audio (float32, 16 kHz, mono) into the detector.
-
-        Returns a list of DetectionResult objects (one per extracted window).
-        Handles arbitrary length chunks without leaking memory.
-
-        Args:
-            chunk: 1-D float32 array of any length.
-        Returns:
-            List of DetectionResult.
+        This only buffers audio in O(1) time. Inference is decoupled.
         """
-        self._buffer = np.concatenate([self._buffer, chunk])
-        results = []
+        if len(chunk) == 0:
+            return
+        with self._lock:
+            self._chunks.append(chunk)
+            self._buffered_samples += len(chunk)
 
-        while len(self._buffer) >= self._window_samples:
-            # Extract window
-            window = self._buffer[: self._window_samples]
+    def get_ready_window(self) -> Optional[np.ndarray]:
+        """
+        Extracts a window of `WINDOW_SEC` if enough audio is buffered.
+        Advances the internal pointer by `STRIDE_SEC`.
+        """
+        with self._lock:
+            if self._buffered_samples < self._window_samples:
+                return None
+                
+            all_data = np.concatenate(list(self._chunks))
+            window = all_data[:self._window_samples]
             
-            # Advance buffer by stride
-            self._buffer = self._buffer[self._stride_samples :]
+            leftover = all_data[self._stride_samples:]
+            self._chunks.clear()
+            if len(leftover) > 0:
+                self._chunks.append(leftover)
+            self._buffered_samples = len(leftover)
             
-            results.append(self._score_window(window))
+        return window
 
-        return results
-
-    def push_full(self, audio: np.ndarray) -> List[DetectionResult]:
-        """
-        Score a complete audio array (e.g. from a file upload) by pushing
-        it through the streaming pipeline window-by-window.
-
-        Returns a list of DetectionResult objects (one per window).
-        """
-        self.reset()
-        
-        # In the new design, push() can handle arrays of any size.
-        results = self.push(audio)
-        
-        # Flush any remaining buffer content
-        if len(self._buffer) > 0:
-            pad_len = self._window_samples
-            padded = np.zeros(pad_len, dtype=np.float32)
-            padded[:len(self._buffer)] = self._buffer
-            results.append(self._score_window(padded))
-            self._buffer = np.array([], dtype=np.float32)
-
-        return results
-
-    def reset(self) -> None:
-        """Clear all buffer and EMA state for a new call."""
-        self._buffer = np.array([], dtype=np.float32)
-        self._ema_prob = None
-        self._window_index = 0
-
-    # ── Internal ───────────────────────────────────────────────────────────
-
-    def _score_window(self, window: np.ndarray) -> DetectionResult:
-        t0 = time.perf_counter()
-
-        # Pad / trim to AASIST-L fixed input length
-        audio_fixed = pad_or_trim(window, NB_SAMP)
-
-        # Run liveness heuristics
-        liveness_result = self._liveness.check(window)
-
-        # Run AASIST-L
-        x = torch.FloatTensor(audio_fixed).unsqueeze(0).to(self._device)
-        with torch.no_grad():
-            last_hidden, logits = self._model(x)
-
-        probs = torch.softmax(logits, dim=1)
-        raw_spoof_prob = float(probs[0, 1].item())
-
-        # Extract named sub-feature scores
-        signals = _extract_signals(last_hidden)
-
-        # EMA smoothing (satisfies FR-3)
+    def update_ema_and_format(
+        self, 
+        raw_spoof_prob: float, 
+        liveness_score: float, 
+        signals: Dict[str, float], 
+        latency_ms: float
+    ) -> DetectionResult:
+        """Called by BatchWorker to finalize the score and format the result."""
         if self._ema_prob is None:
             self._ema_prob = raw_spoof_prob
         else:
@@ -316,16 +274,73 @@ class StreamingDetector:
                 self._alpha * raw_spoof_prob + (1 - self._alpha) * self._ema_prob
             )
 
-        latency_ms = (time.perf_counter() - t0) * 1000
         idx = self._window_index
         self._window_index += 1
 
         return DetectionResult(
             spoof_prob=raw_spoof_prob,
             smoothed_spoof_prob=self._ema_prob,
-            liveness_score=liveness_result.liveness_score,
+            liveness_score=liveness_score,
             band="",   # set by RiskEngine after composite scoring
             signals=signals,
             latency_ms=latency_ms,
             window_index=idx,
+        )
+
+    def push_full(self, audio: np.ndarray) -> List[DetectionResult]:
+        """
+        Score a complete audio array (e.g. from a file upload) by pushing
+        it through the pipeline window-by-window synchronously.
+        """
+        self.reset()
+        if self._model is None:
+            self._model = _get_model(self._checkpoint, self._device)
+            
+        self.push(audio)
+        results = []
+        
+        while True:
+            window = self.get_ready_window()
+            if window is None:
+                break
+            results.append(self._score_window_sync(window))
+            
+        # Flush any remaining buffer content
+        if self._buffered_samples > 0:
+            pad_len = self._window_samples
+            padded = np.zeros(pad_len, dtype=np.float32)
+            padded[:self._buffered_samples] = np.concatenate(list(self._chunks))
+            results.append(self._score_window_sync(padded))
+            self.reset()
+            
+        return results
+
+    def reset(self) -> None:
+        """Clear all buffer and EMA state for a new call."""
+        with self._lock:
+            self._chunks.clear()
+            self._buffered_samples = 0
+            self._ema_prob = None
+            self._window_index = 0
+
+    # ── Internal (Sync Inference for push_full) ────────────────────────────
+
+    def _score_window_sync(self, window: np.ndarray) -> DetectionResult:
+        """Legacy synchronous inference for offline file scoring."""
+        t0 = time.perf_counter()
+
+        audio_fixed = pad_or_trim(window, NB_SAMP)
+        liveness_result = self._liveness.check(window)
+
+        x = torch.FloatTensor(audio_fixed).unsqueeze(0).to(self._device)
+        with torch.no_grad():
+            last_hidden, logits = self._model(x)
+
+        probs = torch.softmax(logits, dim=1)
+        raw_spoof_prob = float(probs[0, 1].item())
+        signals = _extract_signals(last_hidden)
+        latency_ms = (time.perf_counter() - t0) * 1000
+
+        return self.update_ema_and_format(
+            raw_spoof_prob, liveness_result.liveness_score, signals, latency_ms
         )
