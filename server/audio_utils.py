@@ -145,6 +145,8 @@ def bytes_to_pcm(data: bytes, sr: int = TARGET_SR) -> Tuple[np.ndarray, int]:
         audio = _to_mono(audio)
         audio = _simulate_telephony(audio, file_sr)
         audio = _lufs_normalize(audio)
+        # Protection against CUDA poisoning
+        np.nan_to_num(audio, copy=False, nan=0.0, posinf=0.0, neginf=0.0)
         return audio, TARGET_SR
     except Exception:
         pass
@@ -156,6 +158,7 @@ def bytes_to_pcm(data: bytes, sr: int = TARGET_SR) -> Tuple[np.ndarray, int]:
         audio = _to_mono(audio.reshape(-1))
         audio = _simulate_telephony(audio, sr)
         audio = _lufs_normalize(audio)
+        np.nan_to_num(audio, copy=False, nan=0.0, posinf=0.0, neginf=0.0)
         return audio, TARGET_SR
     except Exception as e:
         raise ValueError(f"Could not decode audio bytes: {e}") from e
@@ -173,6 +176,7 @@ def file_bytes_to_pcm(data: bytes) -> np.ndarray:
     audio = _to_mono(audio)
     audio = _simulate_telephony(audio, file_sr)
     audio = _lufs_normalize(audio)
+    np.nan_to_num(audio, copy=False, nan=0.0, posinf=0.0, neginf=0.0)
     return audio
 
 
@@ -194,6 +198,7 @@ def decode_twilio_chunk(payload_b64: str) -> np.ndarray:
     audio = pcm16.astype(np.float32) / 32768.0
     audio = _resample(audio, _TWILIO_SR, TARGET_SR)
     audio = _lufs_normalize(audio)
+    np.nan_to_num(audio, copy=False, nan=0.0, posinf=0.0, neginf=0.0)
     return audio
 
 

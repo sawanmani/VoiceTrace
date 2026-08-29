@@ -29,15 +29,14 @@ class SpeakerVerifier:
     at the same time without race conditions.
     """
 
-    def enroll(self, user_id: str, audio_pcm: np.ndarray) -> bool:
+    async def enroll(self, user_id: str, audio_pcm: np.ndarray) -> None:
         """
-        Compute and persist an ECAPA-TDNN embedding for user_id.
-        Overwrites any previous enrollment for that user.
+        Extract speaker embedding from audio and persist it for `user_id`.
         """
         model = _get_spk_model()
         if model is None:
             log.warning("Speaker model not loaded — enroll is a no-op")
-            return False
+            return
 
         tensor = torch.FloatTensor(audio_pcm).unsqueeze(0)
         with torch.no_grad():
@@ -46,18 +45,16 @@ class SpeakerVerifier:
             emb = model.encode_batch(tensor).squeeze(0).cpu().numpy()
 
         from server.voiceprint_db import save_embedding  # noqa: PLC0415
-        save_embedding(user_id, emb)
+        await save_embedding(user_id, emb)
         log.info("Enrolled voiceprint for user_id=%s", user_id)
-        return True
 
-    def verify(self, user_id: str, audio_pcm: np.ndarray) -> float:
+    async def verify(self, user_id: str, audio_pcm: np.ndarray) -> float:
         """
-        Verify live audio against the stored embedding for user_id.
-        Returns cosine similarity normalized to [0, 1].
-        Returns 1.0 if user is not enrolled (pass-through for unenrolled users).
+        Compare live audio to enrolled embedding.
+        Returns cosine similarity [-1.0, 1.0].
         """
         from server.voiceprint_db import load_embedding  # noqa: PLC0415
-        enrolled_np = load_embedding(user_id)
+        enrolled_np = await load_embedding(user_id)
 
         if enrolled_np is None:
             log.debug("No voiceprint enrolled for user_id=%s — skipping verification", user_id)

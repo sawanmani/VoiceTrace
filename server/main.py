@@ -134,36 +134,38 @@ async def _process_audio_chunk(
 ) -> None:
     """Run inference and broadcast the event. Generates incident report if high-risk."""
     loop = asyncio.get_running_loop()
-    result = await loop.run_in_executor(None, detector.push, audio_chunk)
-    if not result:
+    results = await loop.run_in_executor(None, detector.push, audio_chunk)
+    if not results:
         return
 
-    event = risk_engine.score(result, call_id, context)
+    for result in results:
+        event = risk_engine.score(result, call_id, context)
 
-    if LOG_SCORES:
-        log.info(
-            "process  call=%s  window=%d  risk=%d  band=%s  latency=%.1fms",
-            call_id, event.window_index, event.risk_score,
-            event.band, event.latency_ms,
-        )
-
-    if event.band == "high":
-        try:
-            await loop.run_in_executor(
-                None, generate_incident_report, call_id, [event.to_dict()]
+        if LOG_SCORES:
+            log.info(
+                "process  call=%s  window=%d  risk=%d  band=%s  latency=%.1fms",
+                call_id, event.window_index, event.risk_score,
+                event.band, event.latency_ms,
             )
-        except Exception as exc:
-            log.error("Incident report failed: %s", exc)
 
-    await manager.broadcast(call_id, event.to_dict())
+        if event.band == "high":
+            from server.incident_report import generate_incident_report
+            try:
+                await generate_incident_report(call_id, [event.to_dict()])
+            except Exception as exc:
+                log.error("Incident report failed: %s", exc)
+
+        await manager.broadcast(call_id, event.to_dict())
 
 
 # ── GET /health ────────────────────────────────────────────────────────────
 @app.get("/health", response_model=HealthResponse)
 async def health():
+    from server.pubsub import broker
+    active_calls = await broker.get_active_calls()
     return HealthResponse(
         status="ok",
-        active_calls=len(manager.detectors),
+        active_calls=active_calls,
         dashboard_subscribers=len(manager.global_subscribers),
         model="AASIST-L",
     )
@@ -300,6 +302,7 @@ async def ws_call(websocket: WebSocket, call_id: str):
 
                 await _process_audio_chunk(audio_chunk, detector, call_id, context)
 
+
     except WebSocketDisconnect:
         log.info("ws_call  call=%s  disconnected", call_id)
     except Exception as exc:
@@ -308,7 +311,7 @@ async def ws_call(websocket: WebSocket, call_id: str):
         # Fix 5: Aggressive cleanup — always runs even on unexpected disconnect mid-challenge
         active_challenge_code = None
         challenge_buffer.clear()
-        manager.disconnect_call(call_id, websocket)
+        await manager.disconnect_call(call_id, websocket)
         log.debug("ws_call  call=%s  cleaned up", call_id)
 
 
@@ -381,4 +384,9 @@ async def ws_twilio(websocket: WebSocket):
         log.info("ws_twilio  call=%s  disconnected", call_id)
     finally:
         detector.reset()
+        # Twilio endpoints don't use ConnectionManager's subscribers by default, but let's be safe
+        try:
+            await manager.disconnect_call(call_id, websocket)
+        except Exception:
+            pass
         log.debug("ws_twilio  call=%s  cleaned up", call_id)

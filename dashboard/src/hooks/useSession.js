@@ -13,6 +13,7 @@ export function useSession() {
   const [latency, setLatency] = useState(null)
   const [alertEvent, setAlertEvent] = useState(null)
   const [completedCall, setCompletedCall] = useState(null)
+  const [recentCalls, setRecentCalls] = useState([])
 
   const peakRiskRef = useRef(0)
   const windowCountRef = useRef(0)
@@ -72,6 +73,7 @@ export function useSession() {
     setLatency(null)
     setAlertEvent(null)
     setCompletedCall(null)
+    setRecentCalls([])
   }, [])
 
   const finalizeCall = useCallback((callId, durationSec) => {
@@ -80,21 +82,25 @@ export function useSession() {
                : peak >= THRESHOLD_MEDIUM ? 'medium'
                : peak >= (THRESHOLD_MEDIUM / 2) ? 'uncertain'
                : 'low'
-    setCompletedCall({
-      call_id: callId || 'call-unknown',
+    
+    const callData = {
+      call_id: callId || `call-${Math.floor(Math.random() * 10000)}`,
       peak_risk: peak,
       band,
       windows: windowCountRef.current,
       duration_sec: durationSec,
       time: formatTime(new Date()),
       completed: true,
-    })
+    }
+    
+    setCompletedCall(callData)
+    setRecentCalls(prev => [callData, ...prev].slice(0, 50))
   }, [])
 
   return {
     state: {
       riskScore, signals, liveness, history, events, sessionCount, 
-      highRiskCount, latency, alertEvent, completedCall
+      highRiskCount, latency, alertEvent, completedCall, recentCalls
     },
     actions: {
       handleEvent, resetSession, finalizeCall, setAlertEvent

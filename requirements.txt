@@ -33,3 +33,6 @@ speechbrain>=1.0.0
 pyttsx3>=2.90
 # redis[asyncio] required for multi-worker pub/sub (set REDIS_URL env var to activate)
 redis[asyncio]>=5.0
+aiosqlite>=0.20.0
+aiofiles>=23.2.1
+

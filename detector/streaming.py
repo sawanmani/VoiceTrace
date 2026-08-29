@@ -232,30 +232,31 @@ class StreamingDetector:
 
     # ── Public API ─────────────────────────────────────────────────────────
 
-    def push(self, chunk: np.ndarray) -> Optional[DetectionResult]:
+    def push(self, chunk: np.ndarray) -> List[DetectionResult]:
         """
         Feed raw PCM audio (float32, 16 kHz, mono) into the detector.
 
-        Returns a DetectionResult when a full window has been accumulated,
-        otherwise returns None.
+        Returns a list of DetectionResult objects (one per extracted window).
+        Handles arbitrary length chunks without leaking memory.
 
         Args:
             chunk: 1-D float32 array of any length.
         Returns:
-            DetectionResult if a window is ready, else None.
+            List of DetectionResult.
         """
         self._buffer = np.concatenate([self._buffer, chunk])
+        results = []
 
-        if len(self._buffer) < self._window_samples:
-            return None
+        while len(self._buffer) >= self._window_samples:
+            # Extract window
+            window = self._buffer[: self._window_samples]
+            
+            # Advance buffer by stride
+            self._buffer = self._buffer[self._stride_samples :]
+            
+            results.append(self._score_window(window))
 
-        # Extract window
-        window = self._buffer[: self._window_samples]
-
-        # Advance buffer by stride
-        self._buffer = self._buffer[self._stride_samples :]
-
-        return self._score_window(window)
+        return results
 
     def push_full(self, audio: np.ndarray) -> List[DetectionResult]:
         """
@@ -264,20 +265,17 @@ class StreamingDetector:
 
         Returns a list of DetectionResult objects (one per window).
         """
-        results: List[DetectionResult] = []
-        # Push in 0.5s chunks to simulate streaming
-        chunk_size = int(0.5 * TARGET_SR)
-        for i in range(0, len(audio), chunk_size):
-            chunk = audio[i : i + chunk_size]
-            result = self.push(chunk)
-            if result:
-                results.append(result)
-
+        self.reset()
+        
+        # In the new design, push() can handle arrays of any size.
+        results = self.push(audio)
+        
         # Flush any remaining buffer content
         if len(self._buffer) > 0:
-            result = self._score_window(self._buffer)
-            if result:
-                results.append(result)
+            pad_len = self._window_samples
+            padded = np.zeros(pad_len, dtype=np.float32)
+            padded[:len(self._buffer)] = self._buffer
+            results.append(self._score_window(padded))
             self._buffer = np.array([], dtype=np.float32)
 
         return results

@@ -50,20 +50,23 @@ class ConnectionManager:
             self.global_subscribers.discard(ws)
 
     async def connect_call(self, call_id: str, websocket: WebSocket) -> StreamingDetector:
-        if len(self.detectors) >= self.max_calls:
+        active = await broker.get_active_calls()
+        if active >= self.max_calls:
             await websocket.close(code=1008, reason="Server at capacity — too many active calls")
             raise RuntimeError(f"MAX_CALLS ({self.max_calls}) reached, connection rejected")
         await websocket.accept()
         detector = StreamingDetector()
         self.detectors[call_id] = detector
         self.subscribers[call_id].add(websocket)
+        await broker.increment_active_calls()
         return detector
 
-    def disconnect_call(self, call_id: str, websocket: WebSocket):
+    async def disconnect_call(self, call_id: str, websocket: WebSocket):
         self.subscribers[call_id].discard(websocket)
         detector = self.detectors.pop(call_id, None)
         if detector:
             detector.reset()
+            await broker.decrement_active_calls()
 
     async def connect_global(self, websocket: WebSocket):
         await websocket.accept()

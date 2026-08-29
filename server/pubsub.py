@@ -25,6 +25,7 @@ class _LocalBroker:
     def __init__(self) -> None:
         # channel → set of async callables
         self._listeners: Dict[str, Set[Callable]] = {}
+        self._active_calls = 0
 
     def subscribe(self, channel: str, callback: Callable) -> None:
         self._listeners.setdefault(channel, set()).add(callback)
@@ -39,6 +40,17 @@ class _LocalBroker:
                 await cb(msg)
             except Exception as e:
                 log.debug("pubsub callback error on %s: %s", channel, e)
+
+    async def increment_active_calls(self) -> int:
+        self._active_calls += 1
+        return self._active_calls
+
+    async def decrement_active_calls(self) -> int:
+        self._active_calls = max(0, self._active_calls - 1)
+        return self._active_calls
+
+    async def get_active_calls(self) -> int:
+        return self._active_calls
 
 
 # ── Redis Pub/Sub (enabled when REDIS_URL is set) ──────────────────────────
@@ -62,26 +74,58 @@ class _RedisBroker:
         self._listeners.get(channel, set()).discard(callback)
 
     async def publish(self, channel: str, payload: dict) -> None:
-        await self._redis.publish(f"voicetrace:{channel}", json.dumps(payload))
+        # Use Redis Streams (XADD) for guaranteed delivery
+        await self._redis.xadd(
+            f"voicetrace_stream:{channel}", 
+            {"data": json.dumps(payload)}, 
+            maxlen=1000
+        )
 
     async def _listen_loop(self) -> None:
-        pubsub = self._redis.pubsub()
-        await pubsub.psubscribe("voicetrace:*")
-        async for message in pubsub.listen():
-            if message["type"] != "pmessage":
+        # We listen to all active channels we have subscribers for
+        last_ids = {}
+        while True:
+            # We must only read from channels that have active listeners
+            channels = list(self._listeners.keys())
+            if not channels:
+                await asyncio.sleep(0.1)
                 continue
-            channel = message["channel"].decode().removeprefix("voicetrace:")
-            payload = message["data"]
-            for cb in list(self._listeners.get(channel, set())):
-                try:
-                    await cb(payload)
-                except Exception as e:
-                    log.debug("Redis listener callback error: %s", e)
+
+            streams = {f"voicetrace_stream:{c}": last_ids.get(c, "$") for c in channels}
+            try:
+                results = await self._redis.xread(streams, block=100, count=100)
+                for stream_name, messages in results:
+                    channel = stream_name.decode().removeprefix("voicetrace_stream:")
+                    for message_id, message_data in messages:
+                        last_ids[channel] = message_id.decode()
+                        payload = message_data.get(b"data", b"")
+                        for cb in list(self._listeners.get(channel, set())):
+                            try:
+                                await cb(payload)
+                            except Exception as e:
+                                log.debug("Redis listener callback error: %s", e)
+            except Exception as e:
+                log.debug("Redis stream read error: %s", e)
+                await asyncio.sleep(1)
 
     async def start(self) -> None:
         if not self._started:
             asyncio.create_task(self._listen_loop())
             self._started = True
+
+    async def increment_active_calls(self) -> int:
+        return await self._redis.incr("voicetrace:active_calls_count")
+
+    async def decrement_active_calls(self) -> int:
+        val = await self._redis.decr("voicetrace:active_calls_count")
+        if val < 0:
+            await self._redis.set("voicetrace:active_calls_count", 0)
+            return 0
+        return val
+
+    async def get_active_calls(self) -> int:
+        val = await self._redis.get("voicetrace:active_calls_count")
+        return int(val) if val else 0
 
 
 # ── Factory ────────────────────────────────────────────────────────────────

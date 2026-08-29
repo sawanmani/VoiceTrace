@@ -22,11 +22,11 @@ export const THRESHOLD_MEDIUM    = 35   // 35–64 → medium (suspicious)
 export const THRESHOLD_HIGH      = 65   // 65–100 → high (spoofed)
 
 // ── Risk band colors ─────────────────────────────────────────────────
-export const COLOR_LOW       = '#10b981'  // emerald-500
-export const COLOR_UNCERTAIN = '#60a5fa'  // blue-400  
-export const COLOR_MEDIUM    = '#f59e0b'  // amber-500
-export const COLOR_HIGH      = '#ef4444'  // red-500
-export const COLOR_MUTED     = 'rgba(148,163,184,0.18)'
+export const COLOR_LOW       = '#FAF4EB'  // Light Cream
+export const COLOR_UNCERTAIN = '#F4E3D3'  // Pale Peach
+export const COLOR_MEDIUM    = '#EDCDB1'  // Peach/Tan
+export const COLOR_HIGH      = '#C48A66'  // Darker, intense rust/peach for high risk
+export const COLOR_MUTED     = 'rgba(244, 227, 211, 0.18)'
 
 // ── Demo simulation sequence ───────────────────────────────────────────────
 // Spoof probabilities (0–1) played back during demo / offline mode.

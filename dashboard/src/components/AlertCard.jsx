@@ -1,71 +1,42 @@
-import { useEffect, useState } from 'react'
-import { THRESHOLD_HIGH, THRESHOLD_MEDIUM } from '../lib/constants'
+import { AlertTriangle, X, Download, ShieldAlert, MoreHorizontal } from 'lucide-react';
 
-/**
- * AlertCard — full-width high-risk banner.
- *
- * Appears when risk_score >= threshold (default 65).
- * Auto-dismisses after dismissTimeout. Manual dismiss button.
- * Shows the recommendation text from the server.
- */
-export default function AlertCard({ event, onDismiss, dismissTimeout = 10000 }) {
-  const [visible, setVisible] = useState(true)
-  const [progress, setProgress] = useState(100)
-
-  useEffect(() => {
-    if (!event) return
-    setVisible(true)
-    setProgress(100)
-
-    const start = Date.now()
-    let animationFrame
-    
-    const tick = () => {
-      const elapsed = Date.now() - start
-      const pct = Math.max(0, 100 - (elapsed / dismissTimeout) * 100)
-      setProgress(pct)
-      if (pct <= 0) {
-        setVisible(false)
-        onDismiss?.()
-      } else {
-        animationFrame = requestAnimationFrame(tick)
-      }
-    }
-    
-    animationFrame = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(animationFrame)
-  }, [event]) // Depend on the whole event object
-
-  if (!visible || !event) return null
-
-  // We rely on the server's band if present, else fallback
-  const band = event.band || (event.risk_score >= THRESHOLD_HIGH ? 'high' : event.risk_score >= THRESHOLD_MEDIUM ? 'medium' : 'low')
-  const isMedium = band === 'medium'
+export default function AlertCard({ event, onDismiss }) {
+  if (!event) return null;
 
   return (
-    <div className="alert-card" data-band={band} role="alert" aria-live="assertive">
-      <div className="alert-header">
-        <div className="alert-icon">{isMedium ? '⚠️' : '🚨'}</div>
-        <div className="alert-title">
-          {isMedium ? 'CAUTION — Verification Required' : 'HIGH RISK — Potential Voice Clone Detected'}
+    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 4, height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', borderBottom: '1px solid var(--border)' }}>
+        <div>
+          <h3 style={{ margin: 0, fontSize: 13, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase' }}>INCIDENT REPORT & ALERTS</h3>
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>Always active</div>
         </div>
-        <button className="alert-dismiss" onClick={() => { setVisible(false); onDismiss?.() }}>✕</button>
+        <MoreHorizontal size={16} color="var(--text-secondary)" />
       </div>
 
-      <p className="alert-recommendation">{event.recommendation}</p>
+      <div style={{ padding: '16px', flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ background: 'var(--bg-base)', border: '1px solid var(--border)', borderRadius: 4, padding: 12, position: 'relative' }}>
+          <X size={16} style={{ position: 'absolute', top: 12, right: 12, cursor: 'pointer', color: 'var(--text-secondary)' }} onClick={onDismiss} />
+          
+          <div style={{ background: '#EF4444', width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+            <AlertTriangle size={16} color="#fff" />
+          </div>
 
-      <div className="alert-meta">
-        <span className="alert-score-badge" data-band={band}>
-          Risk Score: {event.risk_score}/100
-        </span>
-        <span className="alert-window">Window #{event.window_index + 1}</span>
-        <span className="alert-latency">{event.latency_ms?.toFixed(0)}ms</span>
-      </div>
+          <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8, letterSpacing: 0.5 }}>ALERT: CLONE SIGNATURE DETECTED.</div>
+          
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+            Recommendation: Recommend callback on a known number before approving any transfer or disclosure.
+          </div>
+        </div>
 
-      {/* Auto-dismiss progress bar */}
-      <div className="alert-progress-track">
-        <div className="alert-progress-fill" style={{ width: `${progress}%` }} data-band={band} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 'auto' }}>
+          <button style={{ width: '100%', padding: '8px', background: 'var(--bg-base)', border: '1px solid var(--border)', borderRadius: 4, fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer' }}>
+            <Download size={14} /> EXPORT INCIDENT (PDF)
+          </button>
+          <button style={{ width: '100%', padding: '8px', background: 'var(--bg-base)', border: '1px solid var(--border)', borderRadius: 4, fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer' }}>
+            <ShieldAlert size={14} /> ESCALATE (MFA)
+          </button>
+        </div>
       </div>
     </div>
-  )
+  );
 }

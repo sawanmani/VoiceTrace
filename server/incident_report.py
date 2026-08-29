@@ -13,7 +13,7 @@ from datetime import datetime
 
 log = logging.getLogger("voicetrace.incident")
 
-def generate_incident_report(call_id: str, events: list):
+async def generate_incident_report(call_id: str, events: list):
     """
     Generates a structured incident report for a flagged call.
     Saves to the 'incidents/' directory.
@@ -44,8 +44,9 @@ def generate_incident_report(call_id: str, events: list):
     }
 
     out_path = incident_dir / f"{report['incident_id']}.json"
-    with open(out_path, "w", encoding="utf-8") as f:
-        json.dump(report, f, indent=2)
+    import aiofiles
+    async with aiofiles.open(out_path, "w", encoding="utf-8") as f:
+        await f.write(json.dumps(report, indent=2))
 
     log.info("Incident report generated: %s", out_path)
     return out_path
