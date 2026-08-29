@@ -4,14 +4,6 @@ VoiceTrace — server/main.py
 FastAPI application entry point.
 Thin orchestrator: routes, auth middleware, startup warmup.
 All business logic delegated to dedicated modules.
-
-Architecture:
-  - /health           → liveness check
-  - /analyze          → file-based inference (POST)
-  - /feedback         → active learning label endpoint (POST)
-  - /ws/call/{id}     → bidirectional browser WebSocket (audio in, events out)
-  - /ws/score         → dashboard subscriber (events only)
-  - /ws/twilio        → Twilio Media Streams bridge
 """
 from __future__ import annotations
 
@@ -32,12 +24,13 @@ from server.audio_utils import bytes_to_pcm, decode_twilio_chunk, file_bytes_to_
 from server.config import CORS_ORIGINS, LOG_LEVEL, LOG_SCORES
 from server.risk_engine import CallContext, RiskEngine
 from server.connection_manager import manager
+from server.call_manager import call_manager
 from server.schemas import (
     HealthResponse, AnalyzeResponse,
     ContextUpdateMessage, ChallengeAudioMessage, FeedbackRequest,
 )
 from server.challenge import ChallengeManager, build_challenge_pool
-from server.incident_report import generate_incident_report
+from server.batch_worker import batch_inference_worker
 
 # ── Logging ────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -48,38 +41,41 @@ log = logging.getLogger("voicetrace")
 
 
 # ── API-Key Middleware (Fix 4) ─────────────────────────────────────────────
-_API_KEY = os.getenv("VOICETRACE_API_KEY", "")   # empty string → auth disabled in dev
+_API_KEY = os.getenv("VOICETRACE_API_KEY", "")
 
 class ApiKeyMiddleware(BaseHTTPMiddleware):
-    """
-    Require X-Api-Key header on all non-WebSocket requests when VOICETRACE_API_KEY is set.
-    WebSocket auth is handled inside each ws_* handler via the query param ?api_key=.
-    """
     async def dispatch(self, request: Request, call_next):
-        if not _API_KEY:
-            return await call_next(request)  # auth disabled in dev/demo mode
-
-        # Skip OPTIONS / health checks for easy monitoring
         if request.method == "OPTIONS" or request.url.path == "/health":
             return await call_next(request)
 
-        # WebSocket connections — checked separately in the handler
         if request.url.path.startswith("/ws/"):
             return await call_next(request)
 
-        key = request.headers.get("X-Api-Key") or request.query_params.get("api_key")
+        if not _API_KEY:
+            return JSONResponse({"detail": "Server API key not configured (fail closed)"}, status_code=500)
+
+        key = request.headers.get("X-Api-Key")
         if key != _API_KEY:
             return JSONResponse({"detail": "Invalid or missing API key"}, status_code=401)
 
         return await call_next(request)
 
 
-def _verify_ws_key(websocket: WebSocket) -> bool:
-    """Check API key on WebSocket connections."""
+async def _verify_ws_key_payload(websocket: WebSocket) -> bool:
+    """Check API key from initial WebSocket JSON payload."""
     if not _API_KEY:
-        return True
-    key = websocket.query_params.get("api_key", "")
-    return key == _API_KEY
+        await websocket.close(code=1011, reason="Server API key not configured")
+        return False
+    try:
+        message = await asyncio.wait_for(websocket.receive_text(), timeout=5.0)
+        data = json.loads(message)
+        if data.get("type") == "auth" and data.get("api_key") == _API_KEY:
+            return True
+    except Exception:
+        pass
+        
+    await websocket.close(code=1008, reason="Unauthorized")
+    return False
 
 
 # ── App ────────────────────────────────────────────────────────────────────
@@ -99,63 +95,28 @@ app.add_middleware(
 )
 
 risk_engine = RiskEngine()
-challenge_mgr = ChallengeManager()   # Stateless — safe to share across calls
+challenge_mgr = ChallengeManager()
 
 
 # ── Startup warmup (Fix 3) ─────────────────────────────────────────────────
 @app.on_event("startup")
 async def startup():
     log.info("VoiceTrace starting up...")
-
-    # Run heavy model loads in executor so the event loop stays unblocked
     loop = asyncio.get_running_loop()
 
-    # Warm up all ML models (AASIST-L, ASR, ECAPA-TDNN)
     from server._model_cache import warmup_all  # noqa: PLC0415
     await loop.run_in_executor(None, warmup_all)
 
-    # Build challenge audio pool in subprocess-isolated manner
     await loop.run_in_executor(None, build_challenge_pool)
 
-    # Start Redis pubsub listener if configured
     from server.pubsub import broker  # noqa: PLC0415
     if hasattr(broker, "start"):
         await broker.start()
+        
+    # Start the dynamic batching worker
+    asyncio.create_task(batch_inference_worker())
 
     log.info("Startup complete.")
-
-
-# ── Shared processing helper ───────────────────────────────────────────────
-async def _process_audio_chunk(
-    audio_chunk: np.ndarray,
-    detector,
-    call_id: str,
-    context: CallContext,
-) -> None:
-    """Run inference and broadcast the event. Generates incident report if high-risk."""
-    loop = asyncio.get_running_loop()
-    results = await loop.run_in_executor(None, detector.push, audio_chunk)
-    if not results:
-        return
-
-    for result in results:
-        event = risk_engine.score(result, call_id, context)
-
-        if LOG_SCORES:
-            log.info(
-                "process  call=%s  window=%d  risk=%d  band=%s  latency=%.1fms",
-                call_id, event.window_index, event.risk_score,
-                event.band, event.latency_ms,
-            )
-
-        if event.band == "high":
-            from server.incident_report import generate_incident_report
-            try:
-                await generate_incident_report(call_id, [event.to_dict()])
-            except Exception as exc:
-                log.error("Incident report failed: %s", exc)
-
-        await manager.broadcast(call_id, event.to_dict())
 
 
 # ── GET /health ────────────────────────────────────────────────────────────
@@ -196,19 +157,12 @@ async def analyze(file: UploadFile = File(...)):
 
     events = [risk_engine.score(r, call_id).to_dict() for r in results]
 
-    if LOG_SCORES:
-        log.info(
-            "analyze  call=%s  windows=%d  peak_risk=%d",
-            call_id, len(events), max(e["risk_score"] for e in events),
-        )
-
     return AnalyzeResponse(call_id=call_id, windows=events)
 
 
 # ── POST /feedback ─────────────────────────────────────────────────────────
 @app.post("/feedback")
 async def feedback(req: FeedbackRequest):
-    """Active learning label endpoint. In prod, queues (call_id, label) for retraining."""
     log.info("Feedback  call=%s  label=%s", req.call_id, req.label)
     return {"status": "recorded"}
 
@@ -216,9 +170,8 @@ async def feedback(req: FeedbackRequest):
 # ── WS /ws/call/{call_id} ─────────────────────────────────────────────────
 @app.websocket("/ws/call/{call_id}")
 async def ws_call(websocket: WebSocket, call_id: str):
-    # Fix 4: Auth check
-    if not _verify_ws_key(websocket):
-        await websocket.close(code=1008, reason="Unauthorized")
+    await websocket.accept()
+    if not await _verify_ws_key_payload(websocket):
         return
 
     try:
@@ -227,17 +180,21 @@ async def ws_call(websocket: WebSocket, call_id: str):
         log.warning("ws_call  %s", exc)
         return
 
-    context = CallContext()
+    state = call_manager.get_state(call_id)
+    if not state:
+        return
+    context = state.context
+    
     active_challenge_code: str | None = None
-    challenge_buffer: list[float] = []
+    challenge_buffer: list[np.ndarray] = []
 
     log.info("ws_call  call=%s  connected", call_id)
 
     try:
         while True:
-            message = await websocket.receive()
+            # 60s idle timeout to prevent memory leaks from half-open TCP connections
+            message = await asyncio.wait_for(websocket.receive(), timeout=60.0)
 
-            # ── Text frame: control messages ──────────────────────────────
             if message.get("text"):
                 try:
                     ctrl = ContextUpdateMessage.model_validate_json(message["text"])
@@ -251,13 +208,9 @@ async def ws_call(websocket: WebSocket, call_id: str):
                         context.transaction_risk = ctrl.transaction_risk
 
                 elif ctrl.type == "trigger_challenge":
-                    log.info("ws_call  call=%s  triggering challenge", call_id)
-                    # Pick from pre-rendered pool — no blocking TTS on event loop
                     chal = challenge_mgr.pick_challenge()
                     if chal is None:
-                        log.error("Challenge pool empty — cannot trigger challenge")
                         continue
-
                     b64 = challenge_mgr.encode_challenge_b64(chal)
                     await websocket.send_text(
                         ChallengeAudioMessage(
@@ -269,69 +222,62 @@ async def ws_call(websocket: WebSocket, call_id: str):
                     active_challenge_code = chal["expected_text"]
                     challenge_buffer = []
 
-                continue
-
-            # ── Binary frame: audio PCM ───────────────────────────────────
             if message.get("bytes"):
                 raw = message["bytes"]
                 try:
                     audio_chunk, _ = bytes_to_pcm(raw)
-                except Exception as exc:
-                    log.debug("ws_call  call=%s  bad audio frame: %s", call_id, exc)
+                except Exception:
                     continue
 
-                # Challenge response collection
                 if active_challenge_code:
-                    challenge_buffer.extend(audio_chunk.tolist())
-                    if len(challenge_buffer) >= 4 * 16000:
-                        resp_audio = np.array(challenge_buffer, dtype=np.float32)
+                    challenge_buffer.append(audio_chunk)
+                    total_len = sum(len(c) for c in challenge_buffer)
+                    if total_len >= 4 * 16000:
+                        resp_audio = np.concatenate(challenge_buffer)
                         loop = asyncio.get_running_loop()
                         passed = await loop.run_in_executor(
                             None, challenge_mgr.verify_response,
                             active_challenge_code, resp_audio,
                         )
-                        if passed:
-                            log.info("ws_call  call=%s  challenge PASSED", call_id)
-                        else:
-                            log.warning("ws_call  call=%s  challenge FAILED — spiking risk", call_id)
+                        if not passed:
                             context.transaction_risk = 1.0
-
-                        # Fix 5: Always clear state regardless of pass/fail
                         active_challenge_code = None
                         challenge_buffer.clear()
 
-                await _process_audio_chunk(audio_chunk, detector, call_id, context)
+                # Push to buffer, BatchWorker handles inference!
+                detector.push(audio_chunk)
 
-
+    except asyncio.TimeoutError:
+        log.warning("ws_call  call=%s  timed out (no data for 60s)", call_id)
     except WebSocketDisconnect:
         log.info("ws_call  call=%s  disconnected", call_id)
     except Exception as exc:
-        log.error("ws_call  call=%s  unexpected error: %s", call_id, exc)
+        log.error("ws_call  call=%s  error: %s", call_id, exc)
     finally:
-        # Fix 5: Aggressive cleanup — always runs even on unexpected disconnect mid-challenge
         active_challenge_code = None
         challenge_buffer.clear()
         await manager.disconnect_call(call_id, websocket)
-        log.debug("ws_call  call=%s  cleaned up", call_id)
 
 
 # ── WS /ws/score ───────────────────────────────────────────────────────────
 @app.websocket("/ws/score")
 async def ws_score(websocket: WebSocket):
-    if not _verify_ws_key(websocket):
-        await websocket.close(code=1008, reason="Unauthorized")
+    await websocket.accept()
+    if not await _verify_ws_key_payload(websocket):
         return
 
     await manager.connect_global(websocket)
     log.info("ws_score  dashboard connected")
     try:
         while True:
-            try:
-                await websocket.receive_text()
-            except Exception:
-                break
+            # 60s idle timeout (Dashboard should send pings if needed)
+            await asyncio.wait_for(websocket.receive_text(), timeout=60.0)
+    except asyncio.TimeoutError:
+        log.warning("ws_score  timed out")
     except WebSocketDisconnect:
         pass
+    except Exception as e:
+        log.error(f"ws_score  error: {e}")
     finally:
         manager.disconnect_global(websocket)
         log.info("ws_score  dashboard disconnected")
@@ -340,20 +286,23 @@ async def ws_score(websocket: WebSocket):
 # ── WS /ws/twilio ─────────────────────────────────────────────────────────
 @app.websocket("/ws/twilio")
 async def ws_twilio(websocket: WebSocket):
-    if not _verify_ws_key(websocket):
-        await websocket.close(code=1008, reason="Unauthorized")
+    await websocket.accept()
+    if not await _verify_ws_key_payload(websocket):
         return
 
-    await websocket.accept()
     call_id = f"twilio-{uuid.uuid4().hex[:8]}"
-    from detector.streaming import StreamingDetector  # noqa: PLC0415
-    detector = StreamingDetector()
+    try:
+        detector = await manager.connect_call(call_id, websocket)
+    except RuntimeError as exc:
+        log.warning("ws_twilio  %s", exc)
+        return
+        
     log.info("ws_twilio  call=%s  connected", call_id)
 
     try:
         while True:
+            raw = await asyncio.wait_for(websocket.receive_text(), timeout=60.0)
             try:
-                raw = await websocket.receive_text()
                 event = json.loads(raw)
             except Exception:
                 continue
@@ -361,10 +310,9 @@ async def ws_twilio(websocket: WebSocket):
             event_type = event.get("event", "")
 
             if event_type == "start":
-                # Twilio nests streamSid inside event["start"], not top-level
                 sid = event.get("start", {}).get("streamSid") or event.get("streamSid")
                 if sid:
-                    call_id = sid
+                    pass
                 log.info("ws_twilio  call=%s  stream started", call_id)
             elif event_type == "media":
                 payload_b64 = event.get("media", {}).get("payload", "")
@@ -372,21 +320,15 @@ async def ws_twilio(websocket: WebSocket):
                     continue
                 try:
                     loop = asyncio.get_running_loop()
-                    audio_chunk = await loop.run_in_executor(
-                        None, decode_twilio_chunk, payload_b64
-                    )
-                    await _process_audio_chunk(audio_chunk, detector, call_id, CallContext())
+                    audio_chunk = await loop.run_in_executor(None, decode_twilio_chunk, payload_b64)
+                    detector.push(audio_chunk)
                 except Exception as exc:
                     log.warning("ws_twilio  call=%s  error: %s", call_id, exc)
             elif event_type == "stop":
                 break
+    except asyncio.TimeoutError:
+        log.warning("ws_twilio  call=%s  timed out", call_id)
     except WebSocketDisconnect:
         log.info("ws_twilio  call=%s  disconnected", call_id)
     finally:
-        detector.reset()
-        # Twilio endpoints don't use ConnectionManager's subscribers by default, but let's be safe
-        try:
-            await manager.disconnect_call(call_id, websocket)
-        except Exception:
-            pass
-        log.debug("ws_twilio  call=%s  cleaned up", call_id)
+        await manager.disconnect_call(call_id, websocket)
