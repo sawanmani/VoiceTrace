@@ -1,34 +1,46 @@
 import { MoreHorizontal } from 'lucide-react';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
 
-export default function RadarAttribution({ probabilities }) {
-  // Use probabilities to dynamically shift the radar graphs to simulate real-time analysis
-  const spoofVal = probabilities?.spoof ? probabilities.spoof * 150 : 30;
-  const genVal = probabilities?.genuine ? probabilities.genuine * 100 : 80;
+export default function RadarAttribution({ signals }) {
+  const getSig = (key) => (signals && signals[key] !== undefined) ? signals[key] * 100 : 20;
 
   const data1 = [
-    { subject: 'PO', A: spoofVal },
-    { subject: 'P1', A: spoofVal * 0.8 },
-    { subject: 'Pood', A: genVal },
-    { subject: 'Pow', A: genVal * 1.2 },
+    { subject: 'GAN', A: getSig('gan_artifact_score') },
+    { subject: 'Spec', A: getSig('spectral_artifact_score') },
+    { subject: 'Voc', A: Math.min(100, getSig('gan_artifact_score') * 1.2) },
+    { subject: 'Noise', A: Math.min(100, getSig('spectral_artifact_score') * 0.8) },
   ];
   
   const data2 = [
-    { subject: 'Freq', A: spoofVal * 1.1 },
-    { subject: 'Phase', A: genVal * 0.5 },
-    { subject: 'Amp', A: spoofVal * 0.6 },
-    { subject: 'Pitch', A: genVal },
+    { subject: 'F0', A: getSig('f0_trajectory_score') },
+    { subject: 'Rhythm', A: getSig('prosody_irregularity_score') },
+    { subject: 'Jitter', A: Math.min(100, getSig('f0_trajectory_score') * 1.1) },
+    { subject: 'Shimmer', A: Math.min(100, getSig('prosody_irregularity_score') * 0.9) },
+  ];
+
+  const data3 = [
+    { subject: 'Phase', A: getSig('phase_coherence_score') },
+    { subject: 'Coher', A: Math.min(100, getSig('phase_coherence_score') * 1.1) },
+    { subject: 'Spec', A: getSig('spectral_artifact_score') },
+    { subject: 'Flux', A: Math.min(100, getSig('spectral_artifact_score') * 0.9) },
+  ];
+
+  const data4 = [
+    { subject: 'Liveness', A: getSig('liveness_score') },
+    { subject: 'Identity', A: getSig('caller_identity_match_score') || 50 },
+    { subject: 'Trust', A: getSig('caller_context_score') || 50 },
+    { subject: 'Risk', A: getSig('transaction_context_score') || 50 },
   ];
 
   const ChartBox = ({ title, data }) => (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 4 }}>{title}</div>
-      <div style={{ width: '100%', height: 120, display: 'flex', alignItems: 'center' }}>
-        <ResponsiveContainer width="70%" height="100%">
-          <RadarChart cx="50%" cy="50%" outerRadius="70%" data={data}>
+      <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 4, textAlign: 'center' }}>{title}</div>
+      <div style={{ width: '100%', height: 150, display: 'flex', alignItems: 'center' }}>
+        <ResponsiveContainer width="85%" height="100%">
+          <RadarChart cx="50%" cy="50%" outerRadius="80%" data={data}>
             <PolarGrid stroke="var(--border)" />
             <PolarAngleAxis dataKey="subject" tick={{ fontSize: 8, fill: 'var(--text-secondary)' }} />
-            <PolarRadiusAxis angle={30} domain={[0, 150]} tick={false} axisLine={false} />
+            <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
             <Radar name="Score" dataKey="A" stroke="var(--accent-rust)" fill="var(--accent-peach)" fillOpacity={0.4} />
           </RadarChart>
         </ResponsiveContainer>
@@ -46,11 +58,11 @@ export default function RadarAttribution({ probabilities }) {
         <h3 style={{ margin: 0, fontSize: 13, fontWeight: 800, letterSpacing: 0.5 }}>DEEP FEATURE ATTRIBUTION // SUB-SCORES</h3>
         <MoreHorizontal size={16} color="var(--text-secondary)" />
       </div>
-      <div style={{ padding: '16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 24px', flex: 1 }}>
-        <ChartBox title="1. Codec Degradation Signature (PO)" data={data1} />
-        <ChartBox title="2. Passive Liveness (2CR/Clipping)" data={data2} />
-        <ChartBox title="3. Spectral/Prosody Anomalies" data={data1} />
-        <ChartBox title="4. Caller Identity Match (P1)" data={data2} />
+      <div className="p-4 grid grid-cols-1 min-[400px]:grid-cols-2 gap-4 lg:gap-6 flex-1">
+        <ChartBox title="1. Deep Fake / Artefacts" data={data1} />
+        <ChartBox title="2. Prosody Irregularity" data={data2} />
+        <ChartBox title="3. Phase / Spectral Anomalies" data={data3} />
+        <ChartBox title="4. Context & Liveness" data={data4} />
       </div>
     </div>
   );

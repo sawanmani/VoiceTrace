@@ -1,20 +1,15 @@
-import { useState, useEffect, useCallback } from 'react'
-import { WS_BASE } from '../lib/constants'
-import { useWebSocket } from '../hooks/useWebSocket'
-import { useMicStream } from '../hooks/useMicStream'
+import { useState, useEffect } from 'react'
+import { useOutletContext } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 
-import Sidebar from '../components/Sidebar'
-import DashboardHeader from '../components/DashboardHeader'
 import CallTimeline from '../components/CallTimeline'
 import AdvancedRiskGauge from '../components/AdvancedRiskGauge'
 import RadarAttribution from '../components/RadarAttribution'
-import LanguageMonitor from '../components/LanguageMonitor'
+import IncidentLog from '../components/IncidentLog'
 import FeedbackPanel from '../components/FeedbackPanel'
 import AlertCard from '../components/AlertCard'
 import Waveform from '../components/Waveform'
 import ScoreChart from '../components/ScoreChart'
-import FileUpload from '../components/FileUpload'
 
 export default function Dashboard() {
   const [now, setNow] = useState(new Date())
@@ -27,55 +22,34 @@ export default function Dashboard() {
 
   // Global state
   const state = useStore()
-  const handleEvent = useStore(s => s.handleEvent)
-  const finalizeCall = useStore(s => s.finalizeCall)
   const setAlertEvent = useStore(s => s.setAlertEvent)
 
-  // Mic streaming
-  const { active, startMic, stopMic } = useMicStream(
-    handleEvent, 
-    finalizeCall
-  )
-
-  const scoreWsUrl = active ? null : `${WS_BASE}/ws/score`
-  const { connected, reconnecting } = useWebSocket(scoreWsUrl, handleEvent)
-
-  const handleFileResults = useCallback((data) => {
-    const windows = data.windows || []
-    windows.forEach((w, i) => {
-      setTimeout(() => handleEvent(w), i * 200)
-    })
-  }, [handleEvent])
+  // Grab persistent global connection state from MainLayout
+  const { active, connected } = useOutletContext()
 
   return (
-    <div className="min-h-screen bg-[var(--bg-base)] text-[var(--text-primary)] font-sans">
-      <Sidebar />
-      <DashboardHeader 
-        connected={connected} 
-        active={active} 
-        sessionCount={state.sessionCount} 
-        onNewScan={() => document.getElementById('file-upload-input')?.click()} 
-      />
-      
-      <main className="ml-[60px] pt-[72px] px-3 pb-3 h-auto lg:h-screen grid lg:grid-cols-[320px_1fr_300px] grid-cols-1 gap-3 box-border overflow-y-auto lg:overflow-hidden">
+    <div className="p-4 md:p-6 lg:p-6 h-auto lg:h-[calc(100vh-72px)] grid lg:grid-cols-[320px_1fr_300px] grid-cols-1 gap-4 lg:gap-6 box-border overflow-y-auto lg:overflow-hidden w-full">
         
         {/* Left Column */}
-        <div className="lg:h-full lg:overflow-hidden h-[400px] overflow-auto">
+        <div className="lg:h-full lg:overflow-hidden min-h-[300px] h-auto overflow-auto">
           <CallTimeline active={active} recentCalls={state.recentCalls} />
         </div>
 
         {/* Center Column */}
-        <div className="flex flex-col gap-3 lg:h-full lg:overflow-hidden h-auto overflow-visible">
-          <div style={{ flex: '0 0 auto', height: '300px' }}>
-             <AdvancedRiskGauge score={state.riskScore} liveness={state.liveness} />
+        <div className="flex flex-col gap-4 lg:gap-6 lg:h-full lg:overflow-hidden h-auto overflow-visible">
+          <div className="flex-none min-h-[250px] lg:min-h-[300px]">
+             <AdvancedRiskGauge score={state.riskScore} liveness={state.liveness} callerIdentity={state.callerIdentity} />
           </div>
-          <div className="grid lg:grid-cols-2 grid-cols-1 gap-3 flex-1 min-h-0">
+          <div className="grid lg:grid-cols-2 grid-cols-1 gap-4 lg:gap-6 flex-1 min-h-0">
              <div style={{ height: '100%' }}>
-               <RadarAttribution probabilities={state.signals?.probabilities} />
+               <RadarAttribution signals={state.signals} />
              </div>
              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', height: '100%' }}>
                 <div style={{ flex: 1, minHeight: 0, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 4, padding: 12, display: 'flex', flexDirection: 'column' }}>
-                   <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: 0.5, marginBottom: 8 }}>LIVE AUDIO STREAM [cite: Call ID: VT-H-2394]</div>
+                   <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: 0.5, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                     LIVE AUDIO STREAM 
+                     <span className="bg-gray-200 text-gray-700 px-2 py-0.5 rounded text-[10px] font-bold">{state.activeCallId || 'NO ACTIVE CALL'}</span>
+                   </div>
                    <div style={{ flex: 1, minHeight: 0 }}><Waveform active={active} score={state.riskScore} /></div>
                 </div>
                 <div style={{ flex: 1, minHeight: 0, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 4, padding: 12, display: 'flex', flexDirection: 'column' }}>
@@ -87,7 +61,7 @@ export default function Dashboard() {
         </div>
 
         {/* Right Column */}
-        <div className="flex flex-col gap-3 lg:h-full lg:overflow-hidden h-auto overflow-visible">
+        <div className="flex flex-col gap-4 lg:gap-6 lg:h-full lg:overflow-hidden h-auto overflow-visible">
            <div style={{ flex: 1 }}>
              {state.alertEvent ? (
                <AlertCard event={state.alertEvent} onDismiss={() => setAlertEvent(null)} /> 
@@ -98,19 +72,13 @@ export default function Dashboard() {
              )}
            </div>
            <div style={{ flex: 1.2 }}>
-             <LanguageMonitor />
+             <IncidentLog events={state.events} />
            </div>
            <div style={{ flex: 0.8 }}>
-             <FeedbackPanel />
+             <FeedbackPanel callId={state.activeCallId} />
            </div>
         </div>
 
-      </main>
-
-      {/* Hidden file uploader triggered by DashboardHeader */}
-      <div style={{ display: 'none' }}>
-        <FileUpload onResults={handleFileResults} disabled={active} />
-      </div>
     </div>
   )
 }
