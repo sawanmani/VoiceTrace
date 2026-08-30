@@ -45,10 +45,14 @@ _API_KEY = os.getenv("VOICETRACE_API_KEY", "")
 
 class ApiKeyMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        if request.method == "OPTIONS" or request.url.path == "/health":
+        path = request.url.path
+        if request.method == "OPTIONS":
             return await call_next(request)
 
-        if request.url.path.startswith("/ws/"):
+        if path in {"/", "/health", "/docs", "/openapi.json", "/redoc"}:
+            return await call_next(request)
+
+        if path.startswith("/ws/"):
             return await call_next(request)
 
         if not _API_KEY:
@@ -117,6 +121,17 @@ async def startup():
     asyncio.create_task(batch_inference_worker())
 
     log.info("Startup complete.")
+
+
+# ── GET / ───────────────────────────────────────────────────────────────────
+@app.get("/")
+async def root():
+    return {
+        "status": "ok",
+        "service": "VoiceTrace",
+        "docs": "/docs",
+        "health": "/health",
+    }
 
 
 # ── GET /health ────────────────────────────────────────────────────────────
