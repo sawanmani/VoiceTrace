@@ -36,3 +36,5 @@ redis[asyncio]>=5.0
 aiosqlite>=0.20.0
 aiofiles>=23.2.1
 
+
+pytest>=7.0

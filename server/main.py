@@ -12,6 +12,9 @@ import json
 import logging
 import os
 import uuid
+from dotenv import load_dotenv
+
+load_dotenv()
 
 import numpy as np
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect
@@ -41,6 +44,8 @@ log = logging.getLogger("voicetrace")
 
 
 # ── API-Key Middleware (Fix 4) ─────────────────────────────────────────────
+from dotenv import load_dotenv
+load_dotenv()
 _API_KEY = os.getenv("VOICETRACE_API_KEY", "")
 
 class ApiKeyMiddleware(BaseHTTPMiddleware):
@@ -118,6 +123,13 @@ async def startup():
 
     log.info("Startup complete.")
 
+@app.on_event("shutdown")
+async def shutdown():
+    log.info("VoiceTrace shutting down...")
+    from server.pubsub import broker
+    if hasattr(broker, "stop"):
+        await broker.stop()
+
 
 # ── GET /health ────────────────────────────────────────────────────────────
 @app.get("/health", response_model=HealthResponse)
@@ -142,7 +154,8 @@ async def analyze(file: UploadFile = File(...)):
     try:
         audio = file_bytes_to_pcm(data)
     except Exception as exc:
-        raise HTTPException(status_code=422, detail=f"Could not decode audio: {exc}")
+        log.warning(f"Audio decode failed: {exc}")
+        raise HTTPException(status_code=422, detail="Invalid audio format")
 
     call_id = f"analyze-{uuid.uuid4().hex[:8]}"
 
@@ -165,6 +178,29 @@ async def analyze(file: UploadFile = File(...)):
 async def feedback(req: FeedbackRequest):
     log.info("Feedback  call=%s  label=%s", req.call_id, req.label)
     return {"status": "recorded"}
+
+
+# ── GET /incidents ─────────────────────────────────────────────────────────
+@app.get("/incidents")
+async def get_incidents():
+    from pathlib import Path
+    import json
+    
+    incident_dir = Path("incidents")
+    if not incident_dir.exists():
+        return []
+    
+    incidents = []
+    for f in incident_dir.glob("*.json"):
+        try:
+            with open(f, "r", encoding="utf-8") as fp:
+                incidents.append(json.load(fp))
+        except Exception as e:
+            log.warning(f"Failed to read incident {f}: {e}")
+            
+    # Sort descending by timestamp
+    incidents.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+    return incidents
 
 
 # ── WS /ws/call/{call_id} ─────────────────────────────────────────────────
@@ -198,7 +234,8 @@ async def ws_call(websocket: WebSocket, call_id: str):
             if message.get("text"):
                 try:
                     ctrl = ContextUpdateMessage.model_validate_json(message["text"])
-                except ValidationError:
+                except ValidationError as e:
+                    await websocket.send_json({"error": "Invalid message format", "details": e.errors()})
                     continue
 
                 if ctrl.type == "context":
@@ -232,7 +269,13 @@ async def ws_call(websocket: WebSocket, call_id: str):
                 if active_challenge_code:
                     challenge_buffer.append(audio_chunk)
                     total_len = sum(len(c) for c in challenge_buffer)
-                    if total_len >= 4 * 16000:
+                    MAX_CHALLENGE_BUFFER_SIZE = 5 * 16000
+                    if total_len > MAX_CHALLENGE_BUFFER_SIZE:
+                        log.warning("ws_call  call=%s  challenge buffer overflow", call_id)
+                        context.transaction_risk = 1.0
+                        active_challenge_code = None
+                        challenge_buffer.clear()
+                    elif total_len >= 4 * 16000:
                         resp_audio = np.concatenate(challenge_buffer)
                         loop = asyncio.get_running_loop()
                         passed = await loop.run_in_executor(
@@ -311,8 +354,9 @@ async def ws_twilio(websocket: WebSocket):
 
             if event_type == "start":
                 sid = event.get("start", {}).get("streamSid") or event.get("streamSid")
-                if sid:
-                    pass
+                if not sid:
+                    await websocket.close(code=1008, reason="Missing streamSid")
+                    return
                 log.info("ws_twilio  call=%s  stream started", call_id)
             elif event_type == "media":
                 payload_b64 = event.get("media", {}).get("payload", "")
