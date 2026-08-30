@@ -10,6 +10,10 @@ export const useStore = create((set, get) => {
   worker.onmessage = (e) => {
     if (e.data.type === 'TELEMETRY_PROCESSED') {
       get().processWorkerMessage(e.data.payload);
+    } else if (e.data.type === 'CHALLENGE_RECEIVED') {
+      get().setChallengeActive(true);
+      // Optional: automatically turn off challenge active state after some time if we don't get a response
+      setTimeout(() => get().setChallengeActive(false), 10000);
     }
   };
 

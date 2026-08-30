@@ -38,7 +38,7 @@ export default function Dashboard() {
         {/* Center Column */}
         <div className="flex flex-col gap-4 lg:gap-6 lg:h-full lg:overflow-hidden h-auto overflow-visible">
           <div className="flex-none min-h-[250px] lg:min-h-[300px]">
-             <AdvancedRiskGauge score={state.riskScore} liveness={state.liveness} callerIdentity={state.callerIdentity} />
+             <AdvancedRiskGauge score={state.riskScore} liveness={state.liveness} callerIdentity={state.callerIdentity} challengeActive={state.challengeActive} />
           </div>
           <div className="grid lg:grid-cols-2 grid-cols-1 gap-4 lg:gap-6 flex-1 min-h-0">
              <div style={{ height: '100%' }}>

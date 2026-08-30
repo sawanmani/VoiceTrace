@@ -19,7 +19,10 @@ export function useSession() {
   const windowCountRef = useRef(0)
 
   const handleEvent = useCallback((data) => {
-    // Ignore non-RiskEvent control messages (e.g. challenge_audio, challenge_result)
+    if (data.type === 'challenge_audio') {
+      // Could play audio here or just update state, but useSession is mainly for demo
+      return
+    }
     if (data.type && data.type !== 'risk_event') return
 
     const score = data.risk_score ?? 0

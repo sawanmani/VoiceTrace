@@ -145,7 +145,7 @@ class ChallengeManager:
             from server._model_cache import get_asr_model  # noqa: PLC0415
             asr = get_asr_model()
             if asr is None:
-                return True
+                return False
 
             batch = torch.FloatTensor(audio).unsqueeze(0)
             lengths = torch.tensor([1.0])
@@ -171,4 +171,4 @@ class ChallengeManager:
 
         except Exception as e:
             log.error("ASR verification error: %s", e)
-            return True   # fail open
+            return False   # fail closed

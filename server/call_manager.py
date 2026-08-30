@@ -8,6 +8,9 @@ class CallState:
     def __init__(self):
         self.detector = StreamingDetector()
         self.context = CallContext()
+        self.peak_risk = 0.0
+        self.windows_processed = 0
+        self.start_time = __import__('time').time()
 
 class CallManager:
     """

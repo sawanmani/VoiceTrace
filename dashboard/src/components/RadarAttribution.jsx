@@ -4,28 +4,15 @@ import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Responsi
 export default function RadarAttribution({ signals }) {
   const getSig = (key) => (signals && signals[key] !== undefined) ? signals[key] * 100 : 20;
 
-  const data1 = [
-    { subject: 'GAN', A: getSig('gan_artifact_score') },
-    { subject: 'Spec', A: getSig('spectral_artifact_score') },
-    { subject: 'Voc', A: Math.min(100, getSig('gan_artifact_score') * 1.2) },
-    { subject: 'Noise', A: Math.min(100, getSig('spectral_artifact_score') * 0.8) },
-  ];
-  
-  const data2 = [
-    { subject: 'F0', A: getSig('f0_trajectory_score') },
-    { subject: 'Rhythm', A: getSig('prosody_irregularity_score') },
-    { subject: 'Jitter', A: Math.min(100, getSig('f0_trajectory_score') * 1.1) },
-    { subject: 'Shimmer', A: Math.min(100, getSig('prosody_irregularity_score') * 0.9) },
-  ];
-
-  const data3 = [
+  const acousticData = [
+    { subject: 'GAN Artifacts', A: getSig('gan_artifact_score') },
+    { subject: 'Spectral', A: getSig('spectral_artifact_score') },
     { subject: 'Phase', A: getSig('phase_coherence_score') },
-    { subject: 'Coher', A: Math.min(100, getSig('phase_coherence_score') * 1.1) },
-    { subject: 'Spec', A: getSig('spectral_artifact_score') },
-    { subject: 'Flux', A: Math.min(100, getSig('spectral_artifact_score') * 0.9) },
+    { subject: 'Prosody', A: getSig('prosody_irregularity_score') },
+    { subject: 'F0 Track', A: getSig('f0_trajectory_score') },
   ];
 
-  const data4 = [
+  const contextData = [
     { subject: 'Liveness', A: getSig('liveness_score') },
     { subject: 'Identity', A: getSig('caller_identity_match_score') || 50 },
     { subject: 'Trust', A: getSig('caller_context_score') || 50 },
@@ -59,10 +46,8 @@ export default function RadarAttribution({ signals }) {
         <MoreHorizontal size={16} color="var(--text-secondary)" />
       </div>
       <div className="p-4 grid grid-cols-1 min-[400px]:grid-cols-2 gap-4 lg:gap-6 flex-1">
-        <ChartBox title="1. Deep Fake / Artefacts" data={data1} />
-        <ChartBox title="2. Prosody Irregularity" data={data2} />
-        <ChartBox title="3. Phase / Spectral Anomalies" data={data3} />
-        <ChartBox title="4. Context & Liveness" data={data4} />
+        <ChartBox title="1. Acoustic Anomalies" data={acousticData} />
+        <ChartBox title="2. Context & Liveness" data={contextData} />
       </div>
     </div>
   );
