@@ -26,7 +26,17 @@ export default function CallTimeline({ active, recentCalls = [] }) {
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 12px 16px 24px', position: 'relative' }}>
         {/* Vertical Timeline Line */}
-        <div style={{ position: 'absolute', left: 28, top: 24, bottom: 24, width: 2, background: 'var(--border)' }} />
+        {(active || recentCalls.length > 0) && <div style={{ position: 'absolute', left: 28, top: 24, bottom: 24, width: 2, background: 'var(--border)' }} />}
+
+        {(!active && recentCalls.length === 0) && (
+          <div className="flex flex-col items-center justify-center h-full text-center p-6 text-[var(--text-secondary)] opacity-70 mt-10">
+             <div className="w-12 h-12 rounded-full border-2 border-dashed border-[var(--border-glow)] flex items-center justify-center mb-3">
+               <ShieldAlert size={20} />
+             </div>
+             <div className="text-[11px] font-bold tracking-wider uppercase">Waiting for calls...</div>
+             <div className="text-[10px] mt-1">No active streams found in this session.</div>
+          </div>
+        )}
 
         {active && (
           <div style={{ position: 'relative', paddingLeft: 24, marginBottom: 16 }}>
