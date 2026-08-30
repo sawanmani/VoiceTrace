@@ -19,6 +19,11 @@ self.onmessage = function (e) {
       // 1. Heavy JSON Parsing
       const data = typeof payload === 'string' ? JSON.parse(payload) : payload;
       
+      if (data.type === 'challenge_audio') {
+        self.postMessage({ type: 'CHALLENGE_RECEIVED', payload: data });
+        return;
+      }
+      
       if (data.type && data.type !== 'risk_event') return;
 
       // 2. Heavy calculations offloaded from main thread

@@ -4,7 +4,7 @@ import { MoreHorizontal } from 'lucide-react';
 export default function FeedbackPanel({ callId }) {
   const [status, setStatus] = useState(null);
 
-  const submitFeedback = async (correct) => {
+  const submitFeedback = async (label) => {
     if (!callId) {
       setStatus('No active call');
       return;
@@ -14,7 +14,7 @@ export default function FeedbackPanel({ callId }) {
       const res = await fetch('http://localhost:8000/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ call_id: callId, is_correct: correct })
+        body: JSON.stringify({ call_id: callId, label })
       });
       if (res.ok) {
         setStatus('Thanks!');
@@ -37,13 +37,13 @@ export default function FeedbackPanel({ callId }) {
       <div style={{ padding: '16px', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: 12 }}>
         {status && <div style={{ fontSize: 12, color: 'var(--accent-rust)', fontWeight: 700 }}>{status}</div>}
         <button 
-          onClick={() => submitFeedback(true)}
+          onClick={() => submitFeedback("genuine")}
           style={{ background: 'var(--bg-base)', border: '1px solid var(--border)', borderRadius: 4, padding: '12px 24px', cursor: 'pointer', width: '100%', maxWidth: 250 }}>
           <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>CORRECT DETECTOR?</div>
           <div className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-[10px] font-bold inline-block uppercase mt-1">This is genuine</div>
         </button>
         <button 
-          onClick={() => submitFeedback(false)}
+          onClick={() => submitFeedback("spoof")}
           style={{ background: 'var(--bg-base)', border: '1px solid var(--accent-rust)', borderRadius: 4, padding: '12px 24px', cursor: 'pointer', width: '100%', maxWidth: 250 }}>
           <div className="bg-red-100 text-red-700 px-2 py-0.5 rounded text-[11px] font-bold inline-block uppercase">Flag Missed Spoof</div>
         </button>
