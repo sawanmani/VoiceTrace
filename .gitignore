@@ -43,3 +43,4 @@ samples/*.flac
 .vscode/
 .idea/
 models/asr_cache/
+models/challenge_pool/*.wav
