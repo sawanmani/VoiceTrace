@@ -9,34 +9,34 @@
 }
 
 :root {
-  /* Light Industrial Theme base */
-  --bg-base: #FDF9F5;
-  --bg-surface: #F4E3D3;
-  --bg-card: #FDF9F5;
+  /* Strict Project Theme based on provided image */
+  --bg-base: #F3EAE1;
+  --bg-surface: #F4D2BB;
+  --bg-card: #F3EAE1;
   --bg-card-hover: #FFFFFF;
-  --border: rgba(162, 107, 73, 0.3);
-  --border-glow: rgba(162, 107, 73, 0.6);
+  --border: rgba(92, 52, 37, 0.15);
+  --border-glow: rgba(92, 52, 37, 0.3);
 
-  /* Earthy palette */
-  --accent-peach: #A26B49;
-  --accent-light-peach: #C48A66;
-  --accent-cream: #4B2C20;
-  --accent-rust: #991B1B; /* Dark red for high risk */
+  /* Earthy palette strictly mapped to theme colors */
+  --accent-peach: #F4D2BB;
+  --accent-light-peach: #F3EAE1;
+  --accent-cream: #F3EAE1;
+  --accent-rust: #5C3425; 
 
   /* Aliasing old accents */
-  --accent-blue: var(--accent-peach);
-  --accent-cyan: var(--accent-light-peach);
-  --accent-green: var(--accent-cream);
+  --accent-blue: var(--accent-rust);
+  --accent-cyan: var(--accent-peach);
+  --accent-green: var(--accent-rust);
   --accent-yellow: var(--accent-peach);
   --accent-red: var(--accent-rust);
   --accent-purple: var(--accent-rust);
 
   /* Text colors */
-  --text-primary: #4B2C20;
-  --text-secondary: #7A513E;
-  --text-muted: #A26B49;
+  --text-primary: #5C3425;
+  --text-secondary: rgba(92, 52, 37, 0.7);
+  --text-muted: rgba(92, 52, 37, 0.4);
 
-  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-sans: 'Playfair Display', serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 
   --radius-sm: 2px;
@@ -888,4 +888,34 @@ html, body {
   font-size: 18px;
   font-weight: 700;
   flex-shrink: 0;
+}
+
+/* --- PRO MAX DASHBOARD OVERRIDES --- */
+[style*="var(--bg-card)"] {
+  background: rgba(255, 255, 255, 0.7) !important;
+  backdrop-filter: blur(12px) !important;
+  border-radius: 16px !important;
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  box-shadow: 0 4px 24px rgba(92, 52, 37, 0.04) !important;
+  transition: all 0.3s ease;
+}
+
+[style*="var(--bg-card)"]:hover {
+  background: rgba(255, 255, 255, 0.9) !important;
+  box-shadow: 0 8px 32px rgba(92, 52, 37, 0.08) !important;
+}
+
+[style*="var(--bg-surface)"] {
+  background: rgba(244, 210, 187, 0.8) !important;
+  backdrop-filter: blur(12px) !important;
+  border-radius: 16px !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  box-shadow: 0 4px 24px rgba(92, 52, 37, 0.06) !important;
+}
+
+h3, [style*="VOICE AUTHENTICITY RISK"], [style*="DEEP FEATURE ATTRIBUTION"], [style*="LIVE AUDIO STREAM"], [style*="SCORE TIMELINE"], [style*="ACTIVE & RECENT CALLS"] {
+  font-family: 'Playfair Display', serif !important;
+  font-weight: 900 !important;
+  color: #5C3425 !important;
+  letter-spacing: 0.05em !important;
 }
