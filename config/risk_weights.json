@@ -1,0 +1,6 @@
+{
+  "model_confidence": 0.60,
+  "caller_context_score": 0.20,
+  "transaction_context_score": 0.15,
+  "historical_anomaly_score": 0.05
+}
