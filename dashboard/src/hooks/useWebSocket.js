@@ -33,12 +33,18 @@ export function useWebSocket(url, onEvent) {
 
       ws.onopen = () => {
         if (!mountedRef.current) return
+<<<<<<< HEAD
+        if (apiKey) {
+          ws.send(JSON.stringify({ type: 'auth', api_key: apiKey }))
+        }
+=======
         
         // Send the auth handshake required by the new backend
         if (apiKey) {
           ws.send(JSON.stringify({ type: 'auth', api_key: apiKey }))
         }
         
+>>>>>>> 80dcfb55a901664a58e40127dc59002ea622c91e
         setConnected(true)
         setReconnecting(false)
         retryDelay.current = 1000
