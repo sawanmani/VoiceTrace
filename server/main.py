@@ -413,6 +413,13 @@ async def room_exists(room_id: str):
 
 
 # ── WS /ws/signal/{room_id} ────────────────────────────────────────────────
+# NOTE(S1 — consciously deferred): This endpoint intentionally skips API key
+# auth. It carries only opaque SDP/ICE candidates — no audio, no PII, no
+# call content. The HTTP-level API key middleware does not apply to WS upgrade
+# requests. /ws/call and /ws/twilio enforce auth via payload-level
+# {"type":"auth","api_key":"..."} on the first frame instead.
+# TODO(production): Add JWT/token in the WS upgrade query param or cookie
+# before deploying beyond a controlled LAN environment.
 @app.websocket("/ws/signal/{room_id}")
 async def ws_signal(websocket: WebSocket, room_id: str):
     """

@@ -197,6 +197,14 @@ audio, if we were to detect it, would be decoded Opus — which introduces artif
 remote peer's audio would require the remote peer to also open a detection WS connection.
 This is by design for the demo — both participants run the dashboard.
 
+**Detection direction (important for evaluators):** Each browser's overlay reflects the
+risk score for **that browser's own microphone input**. In the attack scenario, the
+"attacker" browser plays the cloned sample into its own mic; the attacker's own overlay
+turns red, and — because both participants post to the same shared risk stream — the
+victim's dashboard also receives and displays the same high-risk event. This means the
+victim sees the warning even though the *victim's* mic is clean, because the risk event
+is keyed to the `call_id` / `room_id`, not to a per-participant stream.
+
 **Test coverage:** We tested against one Opus-compressed sample (recorded and re-encoded at
 24kbps). The spoof classifier still flagged it as high-risk, suggesting the synthesis
 artifacts survive lossy compression in this case. This is not a general result.

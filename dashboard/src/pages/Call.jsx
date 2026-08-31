@@ -640,7 +640,7 @@ export default function Call() {
                     riskScore={riskEvent?.risk_score ?? null}
                   />
                   {/* Overlay lives here, positioned inside the remote tile area */}
-                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, pointerEvents: 'none', zIndex: 10 }}>
+                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
                     <CloneWarningOverlay
                       riskScore={riskEvent?.risk_score ?? 0}
                       signals={riskEvent?.signals ?? {}}
