@@ -248,7 +248,9 @@ class StreamingDetector:
             if self._buffered_samples < self._window_samples:
                 return None
                 
-            all_data = np.concatenate(list(self._chunks))
+            raw_bytes = b''.join([c.tobytes() for c in self._chunks])
+            all_data = np.frombuffer(raw_bytes, dtype=np.float32)
+            
             window = all_data[:self._window_samples]
             
             leftover = all_data[self._stride_samples:]

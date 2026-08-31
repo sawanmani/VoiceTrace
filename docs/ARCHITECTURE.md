@@ -8,9 +8,9 @@
 Audio source                 Detection layer              Scoring & delivery         UI
 ─────────────               ─────────────────             ──────────────────        ──────────
 Mic / WebRTC   ─┐                                                                    Live gauge
-Simulated file ─┼──► Chunker ──► StreamingDetector ──► RiskEngine ──► WebSocket ──►  Waveform
-Twilio call    ─┘    (1-3s     (AASIST-L model)      (model +        broadcast       Explain panel
-                      windows)                         context)                      Alert card
+Simulated file ─┼──► Chunker ──► StreamingDetector ──► BatchWorker ──► RiskEngine ──► WebSocket ──► Waveform
+Twilio call    ─┘    (1s       (buffers windows)    (dynamic   (model +        broadcast      Explain panel
+                      windows)                       batching)  context)       (requires auth)
 ```
 
 ## 2. Components
@@ -25,6 +25,10 @@ Twilio call    ─┘    (1-3s     (AASIST-L model)      (model +        broadca
   - `POST /analyze` — single-file scoring, for integration testing and the REST-integration story.
   - `WS /ws/call/{call_id}` — accepts a simulated/browser-mic stream.
   - `WS /ws/twilio` — accepts Twilio Media Streams messages (start/media/stop events), decodes and resamples audio, feeds the same detector pipeline.
+- Requires WebSocket clients to send a JSON text frame (`{"type": "auth", "api_key": "..."}`) upon connecting to authenticate.
+- `batch_worker.py` (Dynamic Batching): Runs in the background, polling active calls every 100ms. It batches ready audio windows and executes the PyTorch inference in a separate thread pool to prevent event loop blocking.
+- `call_manager.py`: Manages the lifecycle and state of active calls.
+- `history_db.py`: SQLite-backed store for persisting call telemetry and historical records, preventing ephemeral state loss.
 - `risk_engine.py` combines detector output with call context into the composite score (see SRS FR-4, FR-5).
 - Broadcasts scored events to any dashboard clients subscribed to that `call_id`.
 

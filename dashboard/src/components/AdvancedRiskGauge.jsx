@@ -1,6 +1,6 @@
 import { MoreHorizontal, Mic, UserCheck, ShieldCheck, AlertCircle } from 'lucide-react';
 
-export default function AdvancedRiskGauge({ score, liveness, callerIdentity }) {
+export default function AdvancedRiskGauge({ score, liveness, callerIdentity, challengeActive }) {
   const rGauge = 70;
   const circGauge = Math.PI * rGauge; // half circle
   const offsetGauge = circGauge * (1 - (score / 100));
@@ -67,8 +67,8 @@ export default function AdvancedRiskGauge({ score, liveness, callerIdentity }) {
               <span className={`px-1.5 py-0.5 rounded font-semibold ml-1 ${liveness > 0.8 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
                 {liveness > 0.8 ? 'SECURE' : 'WARNING'}
               </span><br/>
-              <span style={{ color: liveness && liveness < 0.8 ? 'var(--accent-rust)' : 'var(--text-secondary)' }} className="inline-flex items-center mt-1">
-                <AlertCircle size={10} style={{ marginRight: 4 }}/> Active Challenge Status: <span className="font-bold ml-1">{liveness && liveness < 0.8 ? 'REQUIRED' : 'STANDBY'}</span>
+              <span style={{ color: challengeActive ? 'var(--accent-rust)' : 'var(--text-secondary)' }} className="inline-flex items-center mt-1">
+                <AlertCircle size={10} style={{ marginRight: 4 }}/> Active Challenge Status: <span className="font-bold ml-1">{challengeActive ? 'REQUIRED' : 'STANDBY'}</span>
               </span>
             </div>
           </div>

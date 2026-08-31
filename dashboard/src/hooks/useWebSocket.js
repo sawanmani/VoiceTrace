@@ -33,9 +33,18 @@ export function useWebSocket(url, onEvent) {
 
       ws.onopen = () => {
         if (!mountedRef.current) return
+<<<<<<< HEAD
         if (apiKey) {
           ws.send(JSON.stringify({ type: 'auth', api_key: apiKey }))
         }
+=======
+        
+        // Send the auth handshake required by the new backend
+        if (apiKey) {
+          ws.send(JSON.stringify({ type: 'auth', api_key: apiKey }))
+        }
+        
+>>>>>>> 80dcfb55a901664a58e40127dc59002ea622c91e
         setConnected(true)
         setReconnecting(false)
         retryDelay.current = 1000
@@ -67,8 +76,8 @@ export function useWebSocket(url, onEvent) {
         if (!mountedRef.current) return
         try {
           const data = JSON.parse(ev.data)
-          // Ignore non-RiskEvent messages (e.g. challenge_audio frames)
-          if (data.type && data.type !== 'risk_event') return
+          // Pass all messages through, store/worker handles filtering
+          // if (data.type && data.type !== 'risk_event') return
           onEvent(data)
         } catch (_) { /* not JSON */ }
       }

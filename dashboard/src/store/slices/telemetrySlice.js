@@ -15,8 +15,10 @@ export const createTelemetrySlice = (set, get) => ({
   highRiskCount: 0,
   latency: null,
   alertEvent: null,
+  challengeActive: false,
 
   setAlertEvent: (event) => set({ alertEvent: event }),
+  setChallengeActive: (isActive) => set({ challengeActive: isActive }),
 
   resetTelemetry: () => {
     peakRiskRef = 0;
@@ -33,6 +35,7 @@ export const createTelemetrySlice = (set, get) => ({
       activeCallId: null,
       latency: null,
       alertEvent: null,
+      challengeActive: false,
     });
   },
 

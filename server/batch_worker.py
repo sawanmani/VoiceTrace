@@ -27,9 +27,17 @@ async def batch_inference_worker():
     from server._model_cache import get_aasist
     model = get_aasist()
     
+    retry_count = 0
+    max_retries = 30
     while model is None:
+        if retry_count >= max_retries:
+            log.error(f"Failed to load AASIST model after {max_retries} retries. Shutting down.")
+            raise RuntimeError("Model initialization failed")
         await asyncio.sleep(1.0)
         model = get_aasist()
+        retry_count += 1
+        if retry_count % 5 == 0:
+            log.warning(f"Model load in progress... ({retry_count}s elapsed)")
         
     device = "cuda" if torch.cuda.is_available() else "cpu"
     log.info(f"Batch worker loaded model on {device}")
@@ -67,8 +75,12 @@ async def batch_inference_worker():
         batch_array = np.stack(ready_batch) # Shape: (B, 64600)
         x = torch.FloatTensor(batch_array).to(device) # Shape: (B, 64600)
         
-        with torch.no_grad():
-            last_hidden, logits = model(x)
+        def _forward_pass(mod, inputs):
+            with torch.no_grad():
+                return mod(inputs)
+                
+        loop = asyncio.get_running_loop()
+        last_hidden, logits = await loop.run_in_executor(None, _forward_pass, model, x)
             
         probs = torch.softmax(logits, dim=1)
         raw_spoof_probs = probs[:, 1].cpu().numpy()
@@ -99,6 +111,10 @@ async def batch_inference_worker():
             
             risk_event = risk_engine.score(detection_result, call_id, state.context)
             
+            
+            state.peak_risk = max(state.peak_risk, risk_event.risk_score)
+            state.windows_processed += 1
+            
             from server.config import LOG_SCORES
             if LOG_SCORES:
                 log.info(
@@ -112,4 +128,6 @@ async def batch_inference_worker():
                 # Fire and forget incident generation
                 asyncio.create_task(generate_incident_report(call_id, [risk_event.to_dict()]))
                 
+            from server.history_db import log_event
+            asyncio.create_task(log_event(call_id, risk_event.to_dict()))
             asyncio.create_task(manager.broadcast(call_id, risk_event.to_dict()))

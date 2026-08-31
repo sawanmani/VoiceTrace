@@ -58,10 +58,28 @@ export function useMicStream(onEvent, finalizeCall) {
     callStartRef.current = Date.now()
 
     // Open call WebSocket
+    const apiKey = import.meta.env.VITE_API_KEY ?? ''
     const ws = new WebSocket(`${WS_BASE}/ws/call/${id}`)
     callWsRef.current = ws
+    
+    ws.onopen = () => {
+      if (apiKey) {
+        ws.send(JSON.stringify({ type: 'auth', api_key: apiKey }))
+      }
+    }
+    
     ws.onmessage = (ev) => {
       try { onEvent(JSON.parse(ev.data)) } catch (_) {}
+    }
+    
+    ws.onerror = (err) => {
+      console.error("WebSocket authentication or transport error:", err)
+    }
+    
+    ws.onclose = (ev) => {
+      if (ev.code === 1008) {
+        console.error('WebSocket auth rejected (1008). Check VITE_API_KEY.')
+      }
     }
 
     try {
