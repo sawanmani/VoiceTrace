@@ -11,6 +11,9 @@ class CallState:
         self.peak_risk = 0.0
         self.windows_processed = 0
         self.start_time = __import__('time').time()
+        # Ensures only ONE incident report is generated per call session,
+        # even if the call stays at "high" risk for many windows.
+        self.incident_generated: bool = False
 
 class CallManager:
     """

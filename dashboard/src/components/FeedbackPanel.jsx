@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { MoreHorizontal } from 'lucide-react';
+import { API_BASE } from '../lib/constants';
 
 export default function FeedbackPanel({ callId }) {
   const [status, setStatus] = useState(null);
@@ -11,7 +12,7 @@ export default function FeedbackPanel({ callId }) {
     }
     try {
       setStatus('Sending...');
-      const res = await fetch('http://localhost:8000/feedback', {
+      const res = await fetch(`${API_BASE}/feedback`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ call_id: callId, label })

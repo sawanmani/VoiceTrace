@@ -128,13 +128,24 @@ def _lufs_normalize(audio: np.ndarray) -> np.ndarray:
 
 # ── Public API ─────────────────────────────────────────────────────────────
 
-def bytes_to_pcm(data: bytes, sr: int = TARGET_SR) -> Tuple[np.ndarray, int]:
+def bytes_to_pcm(
+    data: bytes,
+    sr: int = TARGET_SR,
+    apply_telephony: bool = False,
+) -> Tuple[np.ndarray, int]:
     """
     Decode raw bytes from a WebSocket binary frame into float32 PCM.
 
     Accepts:
       - soundfile-readable formats (WAV, FLAC, OGG embedded in bytes)
-      - Raw float32 little-endian PCM (from browser AudioWorklet)
+      - Raw float32 little-endian PCM (from browser ScriptProcessor / AudioWorklet)
+
+    Args:
+        data:             Raw bytes from the WebSocket frame.
+        sr:               Assumed sample rate for the raw-PCM fallback path.
+        apply_telephony:  If True, run G.711 µ-law simulation before returning.
+                          Set True ONLY for uploaded file analysis; keep False
+                          for live WebRTC/mic audio (already clean float32).
 
     Returns:
         (audio_float32_mono_16khz, sample_rate)
@@ -143,20 +154,25 @@ def bytes_to_pcm(data: bytes, sr: int = TARGET_SR) -> Tuple[np.ndarray, int]:
         # Try soundfile first (handles WAV, FLAC, etc.)
         audio, file_sr = sf.read(io.BytesIO(data), dtype="float32")
         audio = _to_mono(audio)
-        audio = _simulate_telephony(audio, file_sr)
+        if apply_telephony:
+            audio = _simulate_telephony(audio, file_sr)
         audio = _lufs_normalize(audio)
-        # Protection against CUDA poisoning
+        # Protection against NaN/Inf poisoning downstream (e.g. CUDA)
         np.nan_to_num(audio, copy=False, nan=0.0, posinf=0.0, neginf=0.0)
         return audio, TARGET_SR
     except Exception:
         pass
 
-    # Fallback: assume raw float32 little-endian at the given SR
+    # Fallback: assume raw float32 little-endian PCM at the given SR.
+    # .copy() is REQUIRED: np.frombuffer returns a read-only view of `data`.
+    # Subsequent nan_to_num(copy=False) would raise ValueError on a read-only
+    # array. The copy also ensures the returned array outlives `data`.
     try:
         n_samples = len(data) // 4
-        audio = np.frombuffer(data, dtype="<f4")[:n_samples]
+        audio = np.frombuffer(data, dtype="<f4")[:n_samples].copy()
         audio = _to_mono(audio.reshape(-1))
-        audio = _simulate_telephony(audio, sr)
+        if apply_telephony:
+            audio = _simulate_telephony(audio, sr)
         audio = _lufs_normalize(audio)
         np.nan_to_num(audio, copy=False, nan=0.0, posinf=0.0, neginf=0.0)
         return audio, TARGET_SR
@@ -169,12 +185,16 @@ def file_bytes_to_pcm(data: bytes) -> np.ndarray:
     Decode an uploaded audio file (WAV, MP3, FLAC, OGG, etc.) into
     float32 mono 16kHz PCM ready for inference.
 
+    Telephony simulation IS applied here: uploaded files are typically
+    clean studio/headset recordings. Simulating the G.711 PSTN bottleneck
+    makes AASIST-L scores realistic for telephony deployment.
+
     Returns:
         1-D float32 numpy array at 16 kHz.
     """
     audio, file_sr = sf.read(io.BytesIO(data), dtype="float32")
     audio = _to_mono(audio)
-    audio = _simulate_telephony(audio, file_sr)
+    audio = _simulate_telephony(audio, file_sr)  # intentional — see docstring
     audio = _lufs_normalize(audio)
     np.nan_to_num(audio, copy=False, nan=0.0, posinf=0.0, neginf=0.0)
     return audio

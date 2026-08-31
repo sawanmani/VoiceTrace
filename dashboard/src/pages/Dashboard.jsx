@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { useStore } from '../store/useStore'
+import { API_BASE } from '../lib/constants'
 
 import CallTimeline from '../components/CallTimeline'
 import AdvancedRiskGauge from '../components/AdvancedRiskGauge'
@@ -19,6 +20,15 @@ export default function Dashboard() {
     const t = setInterval(() => setNow(new Date()), 1000)
     return () => clearInterval(t)
   }, [])
+
+  // Hydrate call history from SQLite on mount so history survives page refresh
+  const setRecentCalls = useStore(s => s.setRecentCalls)
+  useEffect(() => {
+    fetch(`${API_BASE}/history`)
+      .then(r => r.ok ? r.json() : [])
+      .then(calls => { if (calls.length) setRecentCalls(calls) })
+      .catch(() => {}) // silent fallback — in-memory state still works
+  }, [setRecentCalls])
 
   // Global state
   const state = useStore()
