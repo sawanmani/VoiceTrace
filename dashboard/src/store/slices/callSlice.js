@@ -1,5 +1,5 @@
 import { formatTime } from '../../lib/utils';
-import { THRESHOLD_HIGH, THRESHOLD_MEDIUM } from '../../lib/constants';
+import { THRESHOLD_HIGH, THRESHOLD_MEDIUM, THRESHOLD_UNCERTAIN } from '../../lib/constants';
 
 export const createCallSlice = (set, get) => ({
   completedCall: null,
@@ -7,13 +7,16 @@ export const createCallSlice = (set, get) => ({
 
   resetCalls: () => set({ completedCall: null }),
 
+  // Hydrate recentCalls from GET /history on dashboard mount
+  setRecentCalls: (calls) => set({ recentCalls: calls }),
+
   finalizeCall: (callId, durationSec) => {
     const peak = get().getPeakRisk();
     const windows = get().getWindowCount();
     
-    const band = peak >= THRESHOLD_HIGH ? 'high'
-               : peak >= THRESHOLD_MEDIUM ? 'medium'
-               : peak >= (THRESHOLD_MEDIUM / 2) ? 'uncertain'
+    const band = peak >= THRESHOLD_HIGH    ? 'high'
+               : peak >= THRESHOLD_MEDIUM  ? 'medium'
+               : peak >= THRESHOLD_UNCERTAIN ? 'uncertain'
                : 'low';
     
     const callData = {

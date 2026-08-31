@@ -243,23 +243,45 @@ class StreamingDetector:
         """
         Extracts a window of `WINDOW_SEC` if enough audio is buffered.
         Advances the internal pointer by `STRIDE_SEC`.
+
+        Implementation notes:
+          - np.concatenate() is used instead of tobytes()+np.frombuffer().
+            frombuffer() returns a read-only view of the bytes object. Any
+            in-place numpy op on that view (e.g. LivenessChecker's ZCR calc
+            does `signs[signs == 0] = 1`) raises ValueError: assignment
+            destination is read-only. concatenate() allocates owned, writable
+            memory directly.
+          - window.copy() ensures the returned array is independent of the
+            large concatenated buffer. Without this, `window` is a slice view:
+            it keeps the ENTIRE concatenated buffer alive in memory until the
+            next call (memory bloat proportional to call duration).
+          - leftover.copy() for the same reason — only the tail needs to be
+            retained in self._chunks, not a reference to the full buffer.
+          - Lock is released before returning: downstream work (torch tensor
+            construction, liveness heuristics) does not hold the deque lock.
         """
         with self._lock:
             if self._buffered_samples < self._window_samples:
                 return None
-                
-            raw_bytes = b''.join([c.tobytes() for c in self._chunks])
-            all_data = np.frombuffer(raw_bytes, dtype=np.float32)
-            
-            window = all_data[:self._window_samples]
-            
-            leftover = all_data[self._stride_samples:]
+
+            # Safe: np.concatenate gives an owned, writable float32 array.
+            # Consistent with the push_full() flush path (line ~314).
+            all_data = np.concatenate(list(self._chunks))  # shape: (N,)
+
+            # Explicit copy: window is independent of all_data.
+            # Prevents the caller from holding a view into the full buffer.
+            window = all_data[:self._window_samples].copy()
+
+            # Explicit copy: only keep the tail, not a view of all_data.
+            # Without .copy(), self._chunks would pin the full concatenated
+            # buffer in memory until the next get_ready_window() call.
+            leftover = all_data[self._stride_samples:].copy()
             self._chunks.clear()
             if len(leftover) > 0:
                 self._chunks.append(leftover)
             self._buffered_samples = len(leftover)
-            
-        return window
+
+        return window  # writable, owned, lock already released
 
     def update_ema_and_format(
         self, 

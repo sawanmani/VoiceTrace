@@ -10,8 +10,21 @@ from detector.streaming import _extract_signals, NB_SAMP
 from server.call_manager import call_manager
 from server.risk_engine import RiskEngine
 from server.connection_manager import manager
+from server.config import LOG_SCORES, RETAIN_AUDIO
+from server.history_db import log_event
+from server.incident_report import generate_incident_report
 
 log = logging.getLogger("voicetrace")
+
+# Privacy invariant: raw audio must NEVER be persisted to disk.
+# DPDP Act 2023 §4(1)(b) — collect only what is necessary.
+# This assertion fires at worker startup if config is misconfigured.
+assert not RETAIN_AUDIO, (
+    "RETAIN_AUDIO=true detected in config.yaml. "
+    "Raw voice audio is biometric data. "
+    "This flag must remain false per DPDP Act data-minimization requirements. "
+    "If you need audio for research, obtain explicit informed consent first."
+)
 
 # Shared risk engine instance for scoring
 risk_engine = RiskEngine()
@@ -115,7 +128,6 @@ async def batch_inference_worker():
             state.peak_risk = max(state.peak_risk, risk_event.risk_score)
             state.windows_processed += 1
             
-            from server.config import LOG_SCORES
             if LOG_SCORES:
                 log.info(
                     "process  call=%s  window=%d  risk=%d  band=%s  latency=%.1fms",
@@ -123,11 +135,12 @@ async def batch_inference_worker():
                     risk_event.band, risk_event.latency_ms,
                 )
             
-            if risk_event.band == "high":
-                from server.incident_report import generate_incident_report
-                # Fire and forget incident generation
+            # Generate ONE incident report per call (dedup via incident_generated flag).
+            # Without this guard, a 30s high-risk call would generate ~60 separate files.
+            if risk_event.band == "high" and not state.incident_generated:
+                state.incident_generated = True
                 asyncio.create_task(generate_incident_report(call_id, [risk_event.to_dict()]))
                 
-            from server.history_db import log_event
             asyncio.create_task(log_event(call_id, risk_event.to_dict()))
             asyncio.create_task(manager.broadcast(call_id, risk_event.to_dict()))
+

@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Phone, Grid, User, Settings, FileText } from 'lucide-react';
+import { Home, Phone, Grid, User, Settings, FileText, PhoneCall, Link as LinkIcon } from 'lucide-react';
 
 export default function Sidebar() {
   const location = useLocation();
@@ -38,10 +38,12 @@ export default function Sidebar() {
       {/* Navigation Links */}
       <NavItem to="/" icon={Home} isActive={path === '/'} label="Landing Page" />
       <NavItem to="/dashboard" icon={Phone} isActive={path === '/dashboard'} label="Live Bridge" />
+      <NavItem to="/call" icon={PhoneCall} isActive={path.startsWith('/call')} label="Live Call" />
       <NavItem to="/modules" icon={Grid} isActive={path === '/modules'} label="Modules" />
       <NavItem to="/profile" icon={User} isActive={path === '/profile'} label="Team Access" />
       <NavItem to="/settings" icon={Settings} isActive={path === '/settings'} label="Configuration" />
       <NavItem to="/reports" icon={FileText} isActive={path === '/reports'} label="Audit Logs" />
+      <NavItem to="/twilio" icon={LinkIcon} isActive={path === '/twilio'} label="Twilio Config" />
       
       <div className="hidden lg:block flex-1" />
     </div>

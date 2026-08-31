@@ -9,6 +9,8 @@ import Modules from './pages/Modules.jsx'
 import Profile from './pages/Profile.jsx'
 import Settings from './pages/Settings.jsx'
 import Reports from './pages/Reports.jsx'
+import Call from './pages/Call.jsx'
+import TwilioConfig from './pages/TwilioConfig.jsx'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -23,7 +25,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="profile" element={<Profile />} />
           <Route path="settings" element={<Settings />} />
           <Route path="reports" element={<Reports />} />
+          <Route path="twilio" element={<TwilioConfig />} />
         </Route>
+        {/* /call is outside the MainLayout shell — it's a full-screen call UI */}
+        <Route path="/call" element={<Call />} />
       </Routes>
     </BrowserRouter>
     </ErrorBoundary>

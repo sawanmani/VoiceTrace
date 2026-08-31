@@ -49,6 +49,19 @@ async def init_db() -> None:
             )
             """
         )
+
+        # Table for operator feedback (active-learning loop)
+        # label: 'genuine' | 'spoof'
+        await conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS feedback (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                call_id TEXT NOT NULL,
+                label TEXT NOT NULL,
+                time_str TEXT NOT NULL
+            )
+            """
+        )
         await conn.commit()
 
 async def log_event(call_id: str, event_dict: dict) -> None:
@@ -124,3 +137,45 @@ async def get_recent_calls(limit: int = 50) -> List[Dict[str, Any]]:
     except Exception as e:
         log.error(f"Failed to fetch recent calls: {e}")
     return calls
+
+
+async def save_feedback(call_id: str, label: str) -> None:
+    """Persists an operator feedback label for a call (active-learning loop)."""
+    from datetime import datetime
+    await init_db()
+    try:
+        async with aiosqlite.connect(str(_DB_PATH)) as conn:
+            await conn.execute(
+                """
+                INSERT INTO feedback (call_id, label, time_str)
+                VALUES (?, ?, ?)
+                """,
+                (call_id, label, datetime.now().isoformat())
+            )
+            await conn.commit()
+        log.info("Feedback saved  call=%s  label=%s", call_id, label)
+    except Exception as e:
+        log.error("Failed to save feedback: %s", e)
+
+
+async def get_feedback_for_call(call_id: str) -> List[Dict[str, Any]]:
+    """Returns all feedback labels recorded for a given call."""
+    await init_db()
+    rows_out = []
+    try:
+        async with aiosqlite.connect(str(_DB_PATH)) as conn:
+            conn.row_factory = aiosqlite.Row
+            cursor = await conn.execute(
+                "SELECT * FROM feedback WHERE call_id = ? ORDER BY id",
+                (call_id,)
+            )
+            rows = await cursor.fetchall()
+            for r in rows:
+                rows_out.append({
+                    "call_id": r["call_id"],
+                    "label": r["label"],
+                    "time_str": r["time_str"],
+                })
+    except Exception as e:
+        log.error("Failed to fetch feedback: %s", e)
+    return rows_out
