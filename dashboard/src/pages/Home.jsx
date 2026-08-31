@@ -11,6 +11,14 @@ import AnimatedFeatures from '../components/AnimatedFeatures';
 export default function Home() {
   const [liveness, setLiveness] = useState(98.5);
   const [probs, setProbs] = useState({ genuine: 0.98, spoof: 0.02, synthetic: 0.01, cloned: 0.01 });
+  const [mockSignals, setMockSignals] = useState({
+    gan_artifact_score: 0.05,
+    spectral_artifact_score: 0.02,
+    phase_coherence_score: 0.04,
+    prosody_irregularity_score: 0.03,
+    f0_trajectory_score: 0.02,
+    liveness_score: 0.98,
+  });
   const [openFaq, setOpenFaq] = useState(0);
 
   // Simulate live incoming stream data for the preview
@@ -27,6 +35,14 @@ export default function Home() {
         synthetic: spoofVar * 0.4,
         cloned: spoofVar * 0.6
       });
+      setMockSignals(prev => ({
+        gan_artifact_score: Math.max(0.01, Math.min(1.0, prev.gan_artifact_score + (Math.random() * 0.02 - 0.01))),
+        spectral_artifact_score: Math.max(0.01, Math.min(1.0, prev.spectral_artifact_score + (Math.random() * 0.02 - 0.01))),
+        phase_coherence_score: Math.max(0.01, Math.min(1.0, prev.phase_coherence_score + (Math.random() * 0.02 - 0.01))),
+        prosody_irregularity_score: Math.max(0.01, Math.min(1.0, prev.prosody_irregularity_score + (Math.random() * 0.02 - 0.01))),
+        f0_trajectory_score: Math.max(0.01, Math.min(1.0, prev.f0_trajectory_score + (Math.random() * 0.02 - 0.01))),
+        liveness_score: Math.max(0.01, Math.min(1.0, prev.liveness_score + (Math.random() * 0.02 - 0.01))),
+      }));
     }, 1200);
     return () => clearInterval(interval);
   }, []);
@@ -114,7 +130,7 @@ export default function Home() {
                 <AdvancedRiskGauge score={14} liveness={liveness} />
               </div>
               <div className="flex-1 bg-white border border-theme-dark/5 rounded-xl p-4 shadow-sm">
-                <RadarAttribution probabilities={probs} />
+                <RadarAttribution signals={mockSignals} />
               </div>
             </div>
           </div>
