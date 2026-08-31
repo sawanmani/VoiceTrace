@@ -8,6 +8,7 @@ import logging
 from server.pubsub import broker
 from server.config import MAX_CALLS
 from server.call_manager import call_manager
+from server.risk_engine import band_from_score
 
 log = logging.getLogger("voicetrace")
 
@@ -79,13 +80,7 @@ class ConnectionManager:
             duration_sec = int(time.time() - state.start_time)
             peak = state.peak_risk
             
-            band = "low"
-            if peak >= THRESHOLD_HIGH:
-                band = "high"
-            elif peak >= THRESHOLD_MEDIUM:
-                band = "medium"
-            elif peak >= (THRESHOLD_MEDIUM / 2):
-                band = "uncertain"
+            band = band_from_score(int(peak))
                 
             call_data = {
                 "call_id": call_id,

@@ -44,3 +44,19 @@ logging:
   level: "INFO"
   log_scores: true          # log score events (no raw audio)
   log_raw_audio: false      # must stay false — privacy-by-design
+
+# ── Privacy / Data Minimization ────────────────────────────────────────
+# Aligns with DPDP Act (Digital Personal Data Protection Act 2023) —
+# Section 4(1)(b): collect only data necessary for the specified purpose.
+# Raw voice audio is biometric data under the Act. These flags control
+# whether the server persists anything beyond ephemeral in-memory processing.
+privacy:
+  retain_audio: false       # NEVER write raw audio frames to disk
+  retain_features: false    # Do NOT persist extracted feature embeddings
+                            # Set retain_features: true only for research/eval
+                            # with explicit informed consent.
+
+# ── WebRTC ─────────────────────────────────────────────────────────
+webrtc:
+  stun_server: "stun:stun.l.google.com:19302"   # free public STUN, no API key
+  max_room_idle_sec: 300    # destroy signaling room after 5min of inactivity

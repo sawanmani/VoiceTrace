@@ -61,3 +61,12 @@ export const WAVEFORM_BARS = 48
 export const MIC_SAMPLE_RATE    = 16000
 export const MIC_BUFFER_SIZE    = 4096
 export const ALERT_MEDIUM_PROB  = 0.3   // probability of showing medium-risk alert
+
+// ── WebRTC ─────────────────────────────────────────────────────────────────
+// Free public Google STUN server for NAT traversal — no API key needed.
+// For demos over non-local networks, a TURN server may be required.
+export const STUN_SERVER = 'stun:stun.l.google.com:19302'
+
+// ── Overlay ────────────────────────────────────────────────────────────────
+// How long (ms) the yellow overlay stays visible after score drops below medium.
+export const OVERLAY_DISMISS_TIMEOUT_MS = 5000

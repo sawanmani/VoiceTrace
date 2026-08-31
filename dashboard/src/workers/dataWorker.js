@@ -1,33 +1,21 @@
 import { formatTime } from '../lib/utils';
 import { THRESHOLD_HIGH, THRESHOLD_MEDIUM, ALERT_MEDIUM_PROB } from '../lib/constants';
 
-// Simulated heavy processing (e.g. FFT calculation, tensor processing)
-function simulateHeavyProcessing() {
-  let temp = 0;
-  // A tiny loop to simulate computational load without completely freezing the worker
-  for (let i = 0; i < 50000; i++) {
-    temp += Math.sqrt(i);
-  }
-  return temp;
-}
-
 self.onmessage = function (e) {
   const { type, payload } = e.data;
 
   if (type === 'PARSE_TELEMETRY') {
     try {
-      // 1. Heavy JSON Parsing
+      // Parse incoming telemetry
       const data = typeof payload === 'string' ? JSON.parse(payload) : payload;
       
+      // Route challenge audio back to main thread immediately
       if (data.type === 'challenge_audio') {
         self.postMessage({ type: 'CHALLENGE_RECEIVED', payload: data });
         return;
       }
-      
-      if (data.type && data.type !== 'risk_event') return;
 
-      // 2. Heavy calculations offloaded from main thread
-      simulateHeavyProcessing();
+      if (data.type && data.type !== 'risk_event') return;
 
       const score = data.risk_score ?? 0;
       const band = data.band ?? 'low';
