@@ -52,12 +52,36 @@ from dotenv import load_dotenv
 load_dotenv()
 _API_KEY = os.getenv("VOICETRACE_API_KEY", "")
 
+
+def _is_localhost(host: str | None) -> bool:
+    if not host:
+        return False
+    normalized = host.split(":", 1)[0].lower()
+    return normalized in {"localhost", "127.0.0.1", "::1"}
+
+
 class ApiKeyMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        if request.method == "OPTIONS" or request.url.path == "/health":
+        path = request.url.path
+        client_host = request.client.host if request.client else None
+
+        if request.method == "OPTIONS":
             return await call_next(request)
 
-        if request.url.path.startswith("/ws/"):
+        if path in {"/", "/health", "/docs", "/openapi.json", "/redoc"}:
+            return await call_next(request)
+
+        if path.startswith("/ws/"):
+            if not _API_KEY and _is_localhost(client_host):
+                return await call_next(request)
+            if not _API_KEY:
+                return JSONResponse({"detail": "Server API key not configured (fail closed)"}, status_code=500)
+            key = request.headers.get("X-Api-Key")
+            if key != _API_KEY:
+                return JSONResponse({"detail": "Invalid or missing API key"}, status_code=401)
+            return await call_next(request)
+
+        if not _API_KEY and _is_localhost(client_host):
             return await call_next(request)
 
         if request.url.path.startswith("/rooms/"):
@@ -77,18 +101,27 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
 
 
 async def _verify_ws_key_payload(websocket: WebSocket) -> bool:
-    """Check API key from initial WebSocket JSON payload."""
+    """Check API key from initial WebSocket auth payload or query param."""
+    host = (websocket.headers.get("host") or "").split(":", 1)[0].lower()
+    if not _API_KEY and _is_localhost(host):
+        return True
+
     if not _API_KEY:
         await websocket.close(code=1011, reason="Server API key not configured")
         return False
+
+    query_key = websocket.query_params.get("api_key")
+    if query_key == _API_KEY:
+        return True
+
     try:
         message = await asyncio.wait_for(websocket.receive_text(), timeout=5.0)
         data = json.loads(message)
-        if data.get("type") == "auth" and data.get("api_key") == _API_KEY:
+        if isinstance(data, dict) and data.get("type") == "auth" and data.get("api_key") == _API_KEY:
             return True
     except Exception:
         pass
-        
+
     await websocket.close(code=1008, reason="Unauthorized")
     return False
 
@@ -146,6 +179,17 @@ challenge_mgr = ChallengeManager()
 
 
 # ── Startup warmup (removed — now handled by lifespan above) ─────────────
+
+
+# ── GET / ───────────────────────────────────────────────────────────────────
+@app.get("/")
+async def root():
+    return {
+        "status": "ok",
+        "service": "VoiceTrace",
+        "docs": "/docs",
+        "health": "/health",
+    }
 
 
 # ── GET /health ────────────────────────────────────────────────────────────

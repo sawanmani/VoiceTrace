@@ -1,7 +1,0 @@
-# Fill in real GitHub usernames once the team is finalized.
-# See docs/SKILLS.md for the ownership rationale.
-
-/detector/    @ml-lead-github-username
-/server/      @backend-lead-github-username
-/dashboard/   @frontend-lead-github-username
-/docs/        @docs-owner-github-username
