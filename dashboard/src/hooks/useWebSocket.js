@@ -27,14 +27,15 @@ export function useWebSocket(url, onEvent) {
     if (!mountedRef.current || !url) return
 
     try {
-      // Append API key if configured
       const apiKey = import.meta.env.VITE_API_KEY ?? ''
-      const wsUrl = apiKey ? `${url}?api_key=${encodeURIComponent(apiKey)}` : url
-      const ws = new WebSocket(wsUrl)
+      const ws = new WebSocket(url)
       wsRef.current = ws
 
       ws.onopen = () => {
         if (!mountedRef.current) return
+        if (apiKey) {
+          ws.send(JSON.stringify({ type: 'auth', api_key: apiKey }))
+        }
         setConnected(true)
         setReconnecting(false)
         retryDelay.current = 1000
