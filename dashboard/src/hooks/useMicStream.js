@@ -59,13 +59,11 @@ export function useMicStream(onEvent, finalizeCall) {
 
     // Open call WebSocket
     const apiKey = import.meta.env.VITE_API_KEY ?? ''
-    const ws = new WebSocket(`${WS_BASE}/ws/call/${id}`)
+    const ws = new WebSocket(`${WS_BASE}/ws/call/${id}?api_key=${apiKey}`)
     callWsRef.current = ws
     
     ws.onopen = () => {
-      if (apiKey) {
-        ws.send(JSON.stringify({ type: 'auth', api_key: apiKey }))
-      }
+      // Auth handled via query param
     }
     
     ws.onmessage = (ev) => {
@@ -90,15 +88,14 @@ export function useMicStream(onEvent, finalizeCall) {
       const source = ctx.createMediaStreamSource(stream)
       micRef.current = stream
 
-      // NOTE: ScriptProcessor is deprecated but widely supported.
-      // Future: replace with AudioWorklet for better performance and no deprecation warning.
-      const proc = ctx.createScriptProcessor(MIC_BUFFER_SIZE, 1, 1)
+      // Modern AudioWorklet instead of deprecated ScriptProcessor
+      await ctx.audioWorklet.addModule('/pcm-processor.js')
+      const proc = new window.AudioWorkletNode(ctx, 'pcm-processor')
       processorRef.current = proc
 
-      proc.onaudioprocess = (e) => {
-        const pcm = e.inputBuffer.getChannelData(0)
+      proc.port.onmessage = (e) => {
+        const pcm = e.data
         if (ws.readyState === WebSocket.OPEN) {
-          // Use byteOffset + byteLength to correctly slice SharedArrayBuffer views
           ws.send(pcm.buffer.slice(pcm.byteOffset, pcm.byteOffset + pcm.byteLength))
         }
       }

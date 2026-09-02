@@ -77,6 +77,10 @@ def band_from_score(risk_score: int) -> str:
 
     This is the single source of truth used by RiskEngine, ConnectionManager,
     and (via the API contract) the frontend. Do not inline this logic elsewhere.
+
+    ⚠ KEEP IN SYNC WITH dashboard/src/lib/bandFromScore.js
+    If thresholds change here, update THRESHOLD_HIGH/MEDIUM/UNCERTAIN in
+    dashboard/src/lib/constants.js and bandFromScore.js to match.
     """
     if risk_score >= THRESHOLD_HIGH:      return "high"
     if risk_score >= THRESHOLD_MEDIUM:    return "medium"

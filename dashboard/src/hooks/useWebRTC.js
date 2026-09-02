@@ -69,13 +69,12 @@ export function useWebRTC({ roomId, onRiskEvent }) {
 
   // ── Detection side-channel setup ──────────────────────────────────────
 
-  const _startDetection = useCallback((stream, callId) => {
+  const _startDetection = useCallback(async (stream, callId) => {
     const apiKey = import.meta.env.VITE_API_KEY ?? '';
-    const ws = new WebSocket(`${WS_BASE}/ws/call/${callId}`);
+    const ws = new WebSocket(`${WS_BASE}/ws/call/${callId}?api_key=${apiKey}`);
     detWsRef.current = ws;
 
     ws.onopen = () => {
-      if (apiKey) ws.send(JSON.stringify({ type: 'auth', api_key: apiKey }));
       _log('detection WS open, callId=%s', callId);
     };
 
@@ -97,11 +96,14 @@ export function useWebRTC({ roomId, onRiskEvent }) {
     audioCtxRef.current = ctx;
 
     const source = ctx.createMediaStreamSource(stream);
-    const proc = ctx.createScriptProcessor(MIC_BUFFER_SIZE, 1, 1);
+    
+    // Modern AudioWorklet instead of deprecated ScriptProcessor
+    await ctx.audioWorklet.addModule('/pcm-processor.js');
+    const proc = new AudioWorkletNode(ctx, 'pcm-processor');
     processorRef.current = proc;
 
-    proc.onaudioprocess = (e) => {
-      const pcm = e.inputBuffer.getChannelData(0);
+    proc.port.onmessage = (e) => {
+      const pcm = e.data; // Float32Array from processor
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(pcm.buffer.slice(pcm.byteOffset, pcm.byteOffset + pcm.byteLength));
       }
@@ -243,7 +245,7 @@ export function useWebRTC({ roomId, onRiskEvent }) {
 
       // 3. Start detection side-channel (parallel to media path)
       //    callId = roomId + '-local' to namespace each participant
-      _startDetection(stream, `${roomId}-local`);
+      await _startDetection(stream, `${roomId}-local`);
 
       // 4. Open signaling WebSocket
       const sigWs = new WebSocket(`${WS_BASE}/ws/signal/${roomId}`);
