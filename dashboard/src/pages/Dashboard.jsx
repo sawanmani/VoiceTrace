@@ -24,9 +24,11 @@ export default function Dashboard() {
   // Hydrate call history from SQLite on mount so history survives page refresh
   const setRecentCalls = useStore(s => s.setRecentCalls)
   useEffect(() => {
-    fetch(`${API_BASE}/history`)
+    fetch(`${API_BASE}/history`, {
+      headers: { 'X-Api-Key': import.meta.env.VITE_API_KEY || 'dev_key_123' }
+    })
       .then(r => r.ok ? r.json() : [])
-      .then(calls => { if (calls.length) setRecentCalls(calls) })
+      .then(calls => { if (Array.isArray(calls) && calls.length) setRecentCalls(calls) })
       .catch(() => {}) // silent fallback — in-memory state still works
   }, [setRecentCalls])
 
@@ -56,14 +58,14 @@ export default function Dashboard() {
              </div>
              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', height: '100%' }}>
                 <div style={{ flex: 1, minHeight: 0, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 4, padding: 12, display: 'flex', flexDirection: 'column' }}>
-                   <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: 0.5, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                   <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: 0.5, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
                      LIVE AUDIO STREAM 
                      <span className="bg-gray-200 text-gray-700 px-2 py-0.5 rounded text-[10px] font-bold">{state.activeCallId || 'NO ACTIVE CALL'}</span>
                    </div>
                    <div style={{ flex: 1, minHeight: 0 }}><Waveform active={active} score={state.riskScore} /></div>
                 </div>
                 <div style={{ flex: 1, minHeight: 0, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 4, padding: 12, display: 'flex', flexDirection: 'column' }}>
-                   <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: 0.5, marginBottom: 8 }}>SCORE TIMELINE</div>
+                   <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: 0.5, marginBottom: 8 }}>SCORE TIMELINE</div>
                    <div style={{ flex: 1, minHeight: 0 }}><ScoreChart history={state.history} /></div>
                 </div>
              </div>
@@ -76,7 +78,7 @@ export default function Dashboard() {
              {state.alertEvent ? (
                <AlertCard event={state.alertEvent} onDismiss={() => setAlertEvent(null)} /> 
              ) : (
-               <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 4, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600 }}>
+               <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 4, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', fontSize: 17, fontWeight: 600 }}>
                  NO ACTIVE INCIDENTS
                </div>
              )}

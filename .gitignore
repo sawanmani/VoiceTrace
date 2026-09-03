@@ -1,0 +1,51 @@
+﻿# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.class
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Unit test / coverage reports
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Data and models
+models/asr_cache/
+models/spk_cache/
+models/weights/
+samples/*.wav
+!samples/demo_*.wav
+
+# SQLite databases
+*.sqlite3
+*.db
+server/*.db
+history.db
+
+# Generated reports
+incidents/*.json
+
+# Node / Frontend
+dashboard/node_modules/
+dashboard/dist/
+dashboard/.npm/
+npm-debug.log*
+
+# OS generated files
+.DS_Store
+Thumbs.db

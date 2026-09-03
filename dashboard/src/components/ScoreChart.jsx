@@ -8,7 +8,7 @@ function CustomTooltip({ active, payload }) {
   return (
     <div style={{
       background: '#111827', border: '1px solid rgba(255,255,255,0.1)',
-      borderRadius: 8, padding: '8px 12px', fontSize: 12,
+      borderRadius: 8, padding: '8px 12px', fontSize: 16,
     }}>
       <div style={{ color: getRiskColor(val), fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' }}>
         Risk: {val} — {getRiskLabel(val)}
@@ -38,11 +38,11 @@ export default function ScoreChart({ history }) {
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-          <XAxis dataKey="t" tick={{ fill: '#475569', fontSize: 10, fontFamily: 'JetBrains Mono' }} axisLine={false} tickLine={false} />
-          <YAxis domain={[0, 100]} tick={{ fill: '#475569', fontSize: 10 }} axisLine={false} tickLine={false} />
+          <XAxis dataKey="t" tick={{ fill: '#475569', fontSize: 14, fontFamily: 'JetBrains Mono' }} axisLine={false} tickLine={false} />
+          <YAxis domain={[0, 100]} tick={{ fill: '#475569', fontSize: 14 }} axisLine={false} tickLine={false} />
           <Tooltip content={<CustomTooltip />} />
-          <ReferenceLine y={THRESHOLD_HIGH} stroke="rgba(239,68,68,0.35)" strokeDasharray="4 2" label={{ value: 'HIGH', fill: '#ef444460', fontSize: 9 }} />
-          <ReferenceLine y={THRESHOLD_MEDIUM} stroke="rgba(16,185,129,0.3)" strokeDasharray="4 2" label={{ value: 'LOW', fill: '#10b98160', fontSize: 9 }} />
+          <ReferenceLine y={THRESHOLD_HIGH} stroke="rgba(239,68,68,0.35)" strokeDasharray="4 2" label={{ value: 'HIGH', fill: '#ef444460', fontSize: 13 }} />
+          <ReferenceLine y={THRESHOLD_MEDIUM} stroke="rgba(16,185,129,0.3)" strokeDasharray="4 2" label={{ value: 'LOW', fill: '#10b98160', fontSize: 13 }} />
           <Area type="monotone" dataKey="score" stroke="#3b82f6" strokeWidth={2}
             fill="url(#riskGrad)" dot={false}
             activeDot={{ r: 4, fill: '#3b82f6', stroke: '#111827', strokeWidth: 2 }} />

@@ -33,10 +33,10 @@ export default function TwilioConfig() {
           
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 32 }}>
             <PhoneCall size={32} color="var(--accent-green)" />
-            <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800 }}>Twilio Integration</h1>
+            <h1 style={{ margin: 0, fontSize: 32, fontWeight: 800 }}>Twilio Integration</h1>
           </div>
 
-          <p style={{ color: 'var(--text-secondary)', marginBottom: 40, fontSize: 14 }}>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: 40, fontSize: 18 }}>
             Connect live phone calls to VoiceTrace using Twilio Media Streams. When a user dials your Twilio number, the audio is bridged to the VoiceTrace ML engine in real-time.
           </p>
 
@@ -44,14 +44,14 @@ export default function TwilioConfig() {
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, padding: 24, marginBottom: 24 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
               <Globe size={18} color="var(--text-muted)" />
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Webhook URL</h3>
+              <h3 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Webhook URL</h3>
             </div>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 16 }}>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 17, marginBottom: 16 }}>
               Copy this URL and paste it into your Twilio Phone Number configuration under <strong>"A CALL COMES IN"</strong> (set to HTTP POST).
             </p>
             
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ flex: 1, background: 'rgba(0,0,0,0.2)', padding: '12px 16px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 14, fontFamily: 'monospace', color: 'var(--accent-blue)', userSelect: 'all' }}>
+              <div style={{ flex: 1, background: 'rgba(0,0,0,0.2)', padding: '12px 16px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 18, fontFamily: 'monospace', color: 'var(--accent-blue)', userSelect: 'all' }}>
                 {webhookUrl || 'Loading...'}
               </div>
               <button 
@@ -68,10 +68,10 @@ export default function TwilioConfig() {
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, padding: 24 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
               <Server size={18} color="var(--text-muted)" />
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Setup Instructions</h3>
+              <h3 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Setup Instructions</h3>
             </div>
             
-            <ol style={{ paddingLeft: 20, color: 'var(--text-secondary)', fontSize: 14, lineHeight: 1.6, margin: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <ol style={{ paddingLeft: 20, color: 'var(--text-secondary)', fontSize: 18, lineHeight: 1.6, margin: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
               <li>Log in to your <a href="https://console.twilio.com/" target="_blank" rel="noreferrer" style={{ color: 'var(--accent-blue)', textDecoration: 'none' }}>Twilio Console</a>.</li>
               <li>Navigate to <strong>Phone Numbers</strong> &gt; <strong>Manage</strong> &gt; <strong>Active numbers</strong>.</li>
               <li>Click on the phone number you want to use with VoiceTrace.</li>

@@ -198,7 +198,7 @@ export default function CloneWarningOverlay({ riskScore = 0, signals = {}, laten
           {/* Title row */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
             <span style={{
-              fontSize: 11,
+              fontSize: 15,
               fontWeight: 900,
               letterSpacing: '0.12em',
               color: cfg.titleColor,
@@ -208,7 +208,7 @@ export default function CloneWarningOverlay({ riskScore = 0, signals = {}, laten
             </span>
             {/* Risk score badge */}
             <span style={{
-              fontSize: 11,
+              fontSize: 15,
               fontWeight: 700,
               color: cfg.titleColor,
               background: 'rgba(0,0,0,0.3)',
@@ -220,7 +220,7 @@ export default function CloneWarningOverlay({ riskScore = 0, signals = {}, laten
             </span>
             {latencyMs != null && (
               <span style={{
-                fontSize: 10,
+                fontSize: 14,
                 color: cfg.textColor,
                 background: 'rgba(0,0,0,0.2)',
                 borderRadius: 4,
@@ -235,7 +235,7 @@ export default function CloneWarningOverlay({ riskScore = 0, signals = {}, laten
           {/* Explainability note */}
           {top && (
             <div style={{
-              fontSize: 12,
+              fontSize: 16,
               color: cfg.textColor,
               display: 'flex',
               alignItems: 'center',
@@ -251,7 +251,7 @@ export default function CloneWarningOverlay({ riskScore = 0, signals = {}, laten
           {cfg.band === 'red' && (
             <div style={{
               marginTop: 6,
-              fontSize: 11,
+              fontSize: 15,
               fontWeight: 700,
               color: '#fca5a5',
               background: 'rgba(0,0,0,0.2)',

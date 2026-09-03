@@ -13,14 +13,14 @@ export default function CallTimeline({ active, recentCalls = [] }) {
     <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 4, height: '100%', display: 'flex', flexDirection: 'column' }}>
       
       <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', borderBottom: '1px solid var(--border)', background: 'var(--bg-base)', borderTopLeftRadius: 4, borderTopRightRadius: 4 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', border: '1px solid var(--border)', padding: '2px 8px', borderRadius: 2, fontSize: 11, fontWeight: 600 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', border: '1px solid var(--border)', padding: '2px 8px', borderRadius: 2, fontSize: 15, fontWeight: 600 }}>
           RECENT CALL HISTORY <ChevronDown size={14} />
         </div>
         <Filter size={14} style={{ cursor: 'pointer', color: 'var(--text-secondary)' }} />
       </div>
 
       <div style={{ padding: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)' }}>
-        <h3 style={{ margin: 0, fontSize: 13, fontWeight: 800 }}>ACTIVE & RECENT CALLS</h3>
+        <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800 }}>ACTIVE & RECENT CALLS</h3>
         <MoreHorizontal size={16} color="var(--text-secondary)" />
       </div>
 
@@ -43,9 +43,9 @@ export default function CallTimeline({ active, recentCalls = [] }) {
             <div style={{ position: 'absolute', left: -7, top: 4, width: 12, height: 12, borderRadius: '50%', background: 'var(--accent-green)', border: '2px solid var(--bg-card)', zIndex: 2, animation: 'pulse 1.5s infinite' }} />
             <div style={{ background: 'var(--bg-surface)', border: `1px solid var(--border-glow)`, borderRadius: 4, padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 2 }}>Call ID: [LIVE STREAM]</div>
-                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 2 }}>Time: In Progress</div>
-                <div style={{ fontSize: 11, color: 'var(--accent-green)', fontWeight: 600 }}>Active Recording</div>
+                <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 2 }}>Call ID: [LIVE STREAM]</div>
+                <div style={{ fontSize: 15, color: 'var(--text-secondary)', marginBottom: 2 }}>Time: In Progress</div>
+                <div style={{ fontSize: 15, color: 'var(--accent-green)', fontWeight: 600 }}>Active Recording</div>
               </div>
             </div>
           </div>
@@ -60,21 +60,21 @@ export default function CallTimeline({ active, recentCalls = [] }) {
               
               <div style={{ background: 'var(--bg-card)', border: `1px solid ${isHigh ? 'var(--border-glow)' : 'var(--border)'}`, borderRadius: 4, padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 2 }}>Call ID: {call.call_id}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 2 }}>Time: {call.time}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 2 }}>Duration: {formatSec(call.duration_sec)}</div>
-                  <div style={{ fontSize: 11, fontWeight: 600 }}>Peak Risk: {Math.round(call.peak_risk)}</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 2 }}>Call ID: {call.call_id}</div>
+                  <div style={{ fontSize: 15, color: 'var(--text-secondary)', marginBottom: 2 }}>Time: {call.time}</div>
+                  <div style={{ fontSize: 15, color: 'var(--text-secondary)', marginBottom: 2 }}>Duration: {formatSec(call.duration_sec)}</div>
+                  <div style={{ fontSize: 15, fontWeight: 600 }}>Peak Risk: {Math.round(call.peak_risk)}</div>
                 </div>
                 
                 {isHigh ? (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
                     <ShieldAlert size={24} color="var(--accent-rust)" />
-                    <div style={{ background: 'var(--accent-rust)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 2 }}>HIGH RISK</div>
+                    <div style={{ background: 'var(--accent-rust)', color: '#fff', fontSize: 14, fontWeight: 700, padding: '2px 6px', borderRadius: 2 }}>HIGH RISK</div>
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
                     <ShieldAlert size={24} color="var(--accent-peach)" />
-                    <div style={{ background: 'var(--accent-peach)', color: 'var(--bg-card)', fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 2 }}>LOW RISK</div>
+                    <div style={{ background: 'var(--accent-peach)', color: 'var(--bg-card)', fontSize: 14, fontWeight: 700, padding: '2px 6px', borderRadius: 2 }}>LOW RISK</div>
                   </div>
                 )}
               </div>

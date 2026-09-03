@@ -21,10 +21,10 @@ export default function Modules() {
           
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 32 }}>
             <Grid size={32} color="var(--accent-peach)" />
-            <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800 }}>Module Configuration</h1>
+            <h1 style={{ margin: 0, fontSize: 32, fontWeight: 800 }}>Module Configuration</h1>
           </div>
 
-          <p style={{ color: 'var(--text-secondary)', marginBottom: 40, fontSize: 14 }}>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: 40, fontSize: 18 }}>
             Manage the active detection engines and layers for your VoiceTrace deployment.
           </p>
 
@@ -32,17 +32,17 @@ export default function Modules() {
             {modules.map(mod => (
               <div key={mod.name} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, padding: 24, display: 'flex', flexDirection: 'column' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{mod.name}</h3>
+                  <h3 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>{mod.name}</h3>
                   {mod.status === 'active' ? (
                     <CheckCircle2 size={20} color="var(--accent-green)" />
                   ) : (
                     <Activity size={20} color="var(--text-muted)" />
                   )}
                 </div>
-                <p style={{ color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.5, flex: 1 }}>{mod.desc}</p>
+                <p style={{ color: 'var(--text-secondary)', fontSize: 17, lineHeight: 1.5, flex: 1 }}>{mod.desc}</p>
                 <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>ACCURACY: {mod.accuracy}</span>
-                  <button style={{ background: 'transparent', border: '1px solid var(--border)', borderRadius: 4, padding: '4px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-muted)' }}>ACCURACY: {mod.accuracy}</span>
+                  <button style={{ background: 'transparent', border: '1px solid var(--border)', borderRadius: 4, padding: '4px 12px', fontSize: 16, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
                     <SlidersHorizontal size={14} /> Configure
                   </button>
                 </div>

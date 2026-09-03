@@ -37,7 +37,7 @@ export default function Navbar() {
           <Mic size={18} color="#ffffff" strokeWidth={2.5} />
         </div>
         <span style={{ 
-          fontSize: 18, 
+          fontSize: 22, 
           fontWeight: 700, 
           color: '#ffffff',
           letterSpacing: '-0.02em'

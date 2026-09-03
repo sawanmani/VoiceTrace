@@ -42,7 +42,7 @@ export default function Metrics({ score, sessionCount, highRiskCount, latency, l
             </div>
             <span style={{
               fontFamily: 'JetBrains Mono, monospace',
-              fontSize: 13, fontWeight: 600, color: '#34d399', minWidth: 36,
+              fontSize: 17, fontWeight: 600, color: '#34d399', minWidth: 36,
             }}>
               {liveness != null ? `${(liveness * 100).toFixed(0)}%` : '—'}
             </span>

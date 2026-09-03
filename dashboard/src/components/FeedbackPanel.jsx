@@ -14,7 +14,10 @@ export default function FeedbackPanel({ callId }) {
       setStatus('Sending...');
       const res = await fetch(`${API_BASE}/feedback`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-Api-Key': import.meta.env.VITE_API_KEY || 'dev_key_123'
+        },
         body: JSON.stringify({ call_id: callId, label })
       });
       if (res.ok) {
@@ -32,15 +35,15 @@ export default function FeedbackPanel({ callId }) {
   return (
     <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 4, height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', borderBottom: '1px solid var(--border)' }}>
-        <h3 style={{ margin: 0, fontSize: 13, fontWeight: 800, letterSpacing: 0.5 }}>Feedback Loop & Active Learning</h3>
+        <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, letterSpacing: 0.5 }}>Feedback Loop & Active Learning</h3>
         <MoreHorizontal size={16} color="var(--text-secondary)" />
       </div>
       <div style={{ padding: '16px', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: 12 }}>
-        {status && <div style={{ fontSize: 12, color: 'var(--accent-rust)', fontWeight: 700 }}>{status}</div>}
+        {status && <div style={{ fontSize: 16, color: 'var(--accent-rust)', fontWeight: 700 }}>{status}</div>}
         <button 
           onClick={() => submitFeedback("genuine")}
           style={{ background: 'var(--bg-base)', border: '1px solid var(--border)', borderRadius: 4, padding: '12px 24px', cursor: 'pointer', width: '100%', maxWidth: 250 }}>
-          <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>CORRECT DETECTOR?</div>
+          <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 4 }}>CORRECT DETECTOR?</div>
           <div className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-[10px] font-bold inline-block uppercase mt-1">This is genuine</div>
         </button>
         <button 

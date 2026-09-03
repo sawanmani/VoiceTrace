@@ -72,3 +72,12 @@ RETAIN_FEATURES: bool = _cfg.get("privacy", {}).get("retain_features", False)
 WEBRTC_STUN_SERVER: str = _cfg.get("webrtc", {}).get(
     "stun_server", "stun:stun.l.google.com:19302"
 )
+
+# ── Asterisk AudioSocket ───────────────────────────────────────────────────
+AUDIOSOCKET_HOST: str = _cfg.get("asterisk", {}).get("audiosocket_host", "0.0.0.0")
+AUDIOSOCKET_PORT: int = _cfg.get("asterisk", {}).get("audiosocket_port", 1579)
+
+# ── Alerts ───────────────────────────────────────────────────────────────
+TELEGRAM_BOT_TOKEN: str = _cfg.get("alerts", {}).get("telegram_bot_token", "")
+TELEGRAM_CHAT_ID: str = str(_cfg.get("alerts", {}).get("telegram_chat_id", ""))
+ALERT_WEBHOOK_URL: str = _cfg.get("alerts", {}).get("webhook_url", "")

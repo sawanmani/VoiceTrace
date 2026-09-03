@@ -91,7 +91,7 @@ function VideoTile({ stream, label, muted = false, riskScore = null, isCameraOff
           }}>
             <Users size={28} color="rgba(255,255,255,0.3)" />
           </div>
-          <span style={{ fontSize: 13, letterSpacing: '0.05em' }}>
+          <span style={{ fontSize: 17, letterSpacing: '0.05em' }}>
             {stream ? 'CAMERA OFF' : 'CONNECTING...'}
           </span>
         </div>
@@ -103,10 +103,9 @@ function VideoTile({ stream, label, muted = false, riskScore = null, isCameraOff
         display: 'flex', alignItems: 'center', gap: 6,
       }}>
         <span style={{
-          fontSize: 11, fontWeight: 700, letterSpacing: '0.1em',
+          fontSize: 15, fontWeight: 700, letterSpacing: '0.1em',
           color: 'rgba(255,255,255,0.9)',
-          background: 'rgba(0,0,0,0.6)',
-          backdropFilter: 'blur(8px)',
+          background: 'rgba(0,0,0,0.85)',
           padding: '3px 8px', borderRadius: 6,
           textTransform: 'uppercase',
         }}>
@@ -114,11 +113,10 @@ function VideoTile({ stream, label, muted = false, riskScore = null, isCameraOff
         </span>
         {riskScore != null && (
           <span style={{
-            fontSize: 11, fontWeight: 800, letterSpacing: '0.08em',
+            fontSize: 15, fontWeight: 800, letterSpacing: '0.08em',
             color: '#fff',
-            background: `${bandColor(riskScore)}cc`,
+            background: `${bandColor(riskScore)}f2`,
             padding: '3px 8px', borderRadius: 6,
-            backdropFilter: 'blur(8px)',
             transition: 'background 0.4s',
           }}>
             RISK {riskScore}
@@ -206,10 +204,10 @@ function CtrlBtn({ onClick, icon: Icon, active, activeColor, title }) {
 function RiskSidebar({ riskEvent, windowCount }) {
   if (!riskEvent) {
     return (
-      <div style={{ padding: 16, color: 'rgba(255,255,255,0.3)', fontSize: 12, textAlign: 'center' }}>
+      <div style={{ padding: 16, color: 'rgba(255,255,255,0.3)', fontSize: 16, textAlign: 'center' }}>
         <Activity size={20} style={{ marginBottom: 8, opacity: 0.3 }} />
         <div>Waiting for analysis...</div>
-        <div style={{ marginTop: 4, fontSize: 11 }}>Voice detection starts after ~1 second of audio</div>
+        <div style={{ marginTop: 4, fontSize: 15 }}>Voice detection starts after ~1 second of audio</div>
       </div>
     );
   }
@@ -226,19 +224,19 @@ function RiskSidebar({ riskEvent, windowCount }) {
       {/* Score */}
       <div style={{ textAlign: 'center' }}>
         <div style={{
-          fontSize: 40, fontWeight: 900, letterSpacing: '-0.02em',
+          fontSize: 44, fontWeight: 900, letterSpacing: '-0.02em',
           color: bandColor(risk_score), lineHeight: 1,
           textShadow: `0 0 30px ${bandColor(risk_score)}55`,
         }}>
           {risk_score}
         </div>
         <div style={{
-          fontSize: 10, fontWeight: 800, letterSpacing: '0.15em',
+          fontSize: 14, fontWeight: 800, letterSpacing: '0.15em',
           color: bandColor(risk_score), textTransform: 'uppercase', marginTop: 4,
         }}>
           {bandLabel(risk_score)} RISK
         </div>
-        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>
+        <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>
           Window #{windowCount} · {Math.round(latency_ms)}ms
         </div>
       </div>
@@ -255,16 +253,16 @@ function RiskSidebar({ riskEvent, windowCount }) {
 
       {/* Sub-scores */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: 2 }}>
+        <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: '0.12em', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: 2 }}>
           Signal Breakdown
         </div>
         {topSignals.map(([key, val]) => (
           <div key={key}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
-              <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>
+              <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)' }}>
                 {key.replace(/_score$/, '').replace(/_/g, ' ')}
               </span>
-              <span style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>
                 {Math.round(val * 100)}%
               </span>
             </div>
@@ -283,7 +281,7 @@ function RiskSidebar({ riskEvent, windowCount }) {
         background: 'rgba(255,255,255,0.04)',
         border: '1px solid rgba(255,255,255,0.07)',
         borderRadius: 8, padding: '8px 10px',
-        fontSize: 11, color: 'rgba(255,255,255,0.55)', lineHeight: 1.5,
+        fontSize: 15, color: 'rgba(255,255,255,0.55)', lineHeight: 1.5,
       }}>
         {recommendation}
       </div>
@@ -323,7 +321,9 @@ function Lobby({ onJoin }) {
 
     // Check if room exists and has space before opening the WebSocket
     try {
-      const res = await fetch(`${API_BASE}/rooms/${id}/exists`);
+      const res = await fetch(`${API_BASE}/rooms/${id}/exists`, {
+        headers: { 'X-Api-Key': import.meta.env.VITE_API_KEY || 'dev_key_123' }
+      });
       if (res.ok) {
         const data = await res.json();
         if (data.full) {
@@ -377,21 +377,21 @@ function Lobby({ onJoin }) {
             borderRadius: 100, padding: '6px 16px', marginBottom: 16,
           }}>
             <Shield size={14} color="#a78bfa" />
-            <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.15em', color: '#a78bfa', textTransform: 'uppercase' }}>
+            <span style={{ fontSize: 15, fontWeight: 800, letterSpacing: '0.15em', color: '#a78bfa', textTransform: 'uppercase' }}>
               VoiceTrace Live Call
             </span>
           </div>
-          <h1 style={{ fontSize: 24, fontWeight: 900, color: '#fff', margin: 0, letterSpacing: '-0.02em' }}>
+          <h1 style={{ fontSize: 28, fontWeight: 900, color: '#fff', margin: 0, letterSpacing: '-0.02em' }}>
             AI Clone Detection
           </h1>
-          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', marginTop: 8, lineHeight: 1.6 }}>
+          <p style={{ fontSize: 17, color: 'rgba(255,255,255,0.45)', marginTop: 8, lineHeight: 1.6 }}>
             Start a WebRTC call with real-time voice-clone risk scoring.
           </p>
         </div>
 
         {/* Room ID input */}
         <div style={{ marginBottom: 16 }}>
-          <label style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', display: 'block', marginBottom: 8 }}>
+          <label style={{ fontSize: 15, fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', display: 'block', marginBottom: 8 }}>
             Room ID
           </label>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -406,7 +406,7 @@ function Lobby({ onJoin }) {
                 flex: 1, height: 44, borderRadius: 10,
                 background: 'rgba(255,255,255,0.05)',
                 border: error ? '1px solid #ef4444' : '1px solid rgba(255,255,255,0.1)',
-                color: '#fff', fontSize: 15, fontWeight: 700,
+                color: '#fff', fontSize: 19, fontWeight: 700,
                 letterSpacing: '0.1em', padding: '0 14px',
                 outline: 'none', transition: 'border 0.2s',
                 fontFamily: 'monospace',
@@ -428,7 +428,7 @@ function Lobby({ onJoin }) {
             </button>
           </div>
           {error && (
-            <div style={{ color: '#f87171', fontSize: 11, marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <div style={{ color: '#f87171', fontSize: 15, marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
               <AlertTriangle size={11} /> {error}
             </div>
           )}
@@ -445,7 +445,7 @@ function Lobby({ onJoin }) {
           }}>
             <ExternalLink size={12} color="#a78bfa" style={{ flexShrink: 0 }} />
             <span style={{
-              flex: 1, fontSize: 11, color: 'rgba(255,255,255,0.4)',
+              flex: 1, fontSize: 15, color: 'rgba(255,255,255,0.4)',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>
               {urlForShare}
@@ -472,7 +472,7 @@ function Lobby({ onJoin }) {
             width: '100%', height: 48, borderRadius: 12,
             background: 'linear-gradient(135deg, #7c3aed, #4f46e5)',
             border: 'none', cursor: 'pointer', color: '#fff',
-            fontSize: 14, fontWeight: 800, letterSpacing: '0.05em',
+            fontSize: 18, fontWeight: 800, letterSpacing: '0.05em',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             boxShadow: '0 4px 20px rgba(139,92,246,0.4)',
             transition: 'transform 0.15s, box-shadow 0.15s',
@@ -484,7 +484,7 @@ function Lobby({ onJoin }) {
           {roomInput ? 'Join Room' : 'Create & Join'}
         </button>
 
-        <p style={{ textAlign: 'center', fontSize: 11, color: 'rgba(255,255,255,0.2)', marginTop: 16, lineHeight: 1.6 }}>
+        <p style={{ textAlign: 'center', fontSize: 15, color: 'rgba(255,255,255,0.2)', marginTop: 16, lineHeight: 1.6 }}>
           Audio is processed locally. Raw audio is never stored on the server.
           <br />SIH 2026 · PSID 260104
         </p>
@@ -560,11 +560,11 @@ export default function Call() {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <Shield size={16} color="#a78bfa" />
-          <span style={{ fontSize: 13, fontWeight: 800, color: '#fff', letterSpacing: '0.05em' }}>
+          <span style={{ fontSize: 17, fontWeight: 800, color: '#fff', letterSpacing: '0.05em' }}>
             VoiceTrace
           </span>
           <span style={{
-            fontSize: 10, color: 'rgba(255,255,255,0.35)',
+            fontSize: 14, color: 'rgba(255,255,255,0.35)',
             background: 'rgba(255,255,255,0.05)',
             border: '1px solid rgba(255,255,255,0.08)',
             borderRadius: 4, padding: '2px 7px', fontFamily: 'monospace',
@@ -586,7 +586,7 @@ export default function Call() {
               background: callState === 'active' ? '#10b981' : callState === 'error' ? '#ef4444' : '#f59e0b',
               animation: callState === 'waiting' || callState === 'connecting' ? 'vt-blink 1.2s ease-in-out infinite' : 'none',
             }} />
-            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase' }}>
+            <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '0.08em', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase' }}>
               {callState === 'idle' ? 'Ready' :
                callState === 'connecting' ? 'Connecting...' :
                callState === 'waiting' ? 'Waiting for peer...' :
@@ -595,7 +595,7 @@ export default function Call() {
                callState === 'ended' ? 'Call Ended' : 'Error'}
             </span>
           </div>
-          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', fontFamily: 'monospace' }}>
+          <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.25)', fontFamily: 'monospace' }}>
             {role ? `(${role})` : ''}
           </span>
         </div>
@@ -614,13 +614,13 @@ export default function Call() {
               alignItems: 'center', justifyContent: 'center', gap: 16,
             }}>
               <PhoneOff size={48} color="rgba(255,255,255,0.2)" />
-              <div style={{ fontSize: 18, fontWeight: 700, color: 'rgba(255,255,255,0.5)' }}>Call ended</div>
+              <div style={{ fontSize: 22, fontWeight: 700, color: 'rgba(255,255,255,0.5)' }}>Call ended</div>
               <button
                 onClick={() => { setActiveRoomId(null); navigate('/call'); }}
                 style={{
                   background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)',
                   color: '#a78bfa', borderRadius: 10, padding: '10px 24px',
-                  cursor: 'pointer', fontSize: 13, fontWeight: 700,
+                  cursor: 'pointer', fontSize: 17, fontWeight: 700,
                 }}
               >
                 Return to Lobby
@@ -682,7 +682,7 @@ export default function Call() {
           <div style={{
             padding: '12px 16px',
             borderBottom: '1px solid rgba(255,255,255,0.06)',
-            fontSize: 10, fontWeight: 800, letterSpacing: '0.15em',
+            fontSize: 14, fontWeight: 800, letterSpacing: '0.15em',
             color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase',
             display: 'flex', alignItems: 'center', gap: 6,
           }}>

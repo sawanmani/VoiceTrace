@@ -21,12 +21,12 @@ export default function RadarAttribution({ signals }) {
 
   const ChartBox = ({ title, data }) => (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 4, textAlign: 'center' }}>{title}</div>
+      <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4, textAlign: 'center' }}>{title}</div>
       <div style={{ width: '100%', height: 150, display: 'flex', alignItems: 'center' }}>
         <ResponsiveContainer width="85%" height="100%">
           <RadarChart cx="50%" cy="50%" outerRadius="80%" data={data}>
             <PolarGrid stroke="var(--border)" />
-            <PolarAngleAxis dataKey="subject" tick={{ fontSize: 8, fill: 'var(--text-secondary)' }} />
+            <PolarAngleAxis dataKey="subject" tick={{ fontSize: 12, fill: 'var(--text-secondary)' }} />
             <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
             <Radar name="Score" dataKey="A" stroke="var(--accent-rust)" fill="var(--accent-peach)" fillOpacity={0.4} />
           </RadarChart>
@@ -42,7 +42,7 @@ export default function RadarAttribution({ signals }) {
   return (
     <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 4, height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', borderBottom: '1px solid var(--border)' }}>
-        <h3 style={{ margin: 0, fontSize: 13, fontWeight: 800, letterSpacing: 0.5 }}>DEEP FEATURE ATTRIBUTION // SUB-SCORES</h3>
+        <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, letterSpacing: 0.5 }}>DEEP FEATURE ATTRIBUTION // SUB-SCORES</h3>
         <MoreHorizontal size={16} color="var(--text-secondary)" />
       </div>
       <div className="p-4 grid grid-cols-1 min-[400px]:grid-cols-2 gap-4 lg:gap-6 flex-1">

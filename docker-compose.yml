@@ -1,0 +1,21 @@
+version: "3"
+
+services:
+  turn:
+    image: coturn/coturn:latest
+    container_name: voicetrace_coturn
+    network_mode: host
+    command:
+      # Use long-term credentials
+      - --lt-cred-mech
+      # Generate credentials: <username>:<password>
+      - --user=voicetrace:demo2026
+      - --realm=voicetrace.local
+      - --listening-port=3478
+      - --tls-listening-port=5349
+      - --min-port=49152
+      - --max-port=65535
+      - --no-tls
+      - --no-dtls
+      - --verbose
+    restart: always
