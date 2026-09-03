@@ -65,7 +65,7 @@ export default function CallHistory({ currentCall }) {
             onClick={() => setCollapsed(c => !c)}
             style={{
               background: 'none', border: 'none', color: '#475569',
-              cursor: 'pointer', fontSize: 14, padding: '2px 4px',
+              cursor: 'pointer', fontSize: 18, padding: '2px 4px',
             }}
           >
             {collapsed ? '▼' : '▲'}
@@ -75,7 +75,7 @@ export default function CallHistory({ currentCall }) {
               onClick={clearHistory}
               style={{
                 background: 'none', border: 'none', color: '#475569',
-                cursor: 'pointer', fontSize: 11, padding: '2px 4px',
+                cursor: 'pointer', fontSize: 15, padding: '2px 4px',
               }}
             >
               Clear
@@ -87,7 +87,7 @@ export default function CallHistory({ currentCall }) {
       {!collapsed && (
         <div className="history-list">
           {history.length === 0 && (
-            <div style={{ color: '#475569', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>
+            <div style={{ color: '#475569', fontSize: 17, textAlign: 'center', padding: '20px 0' }}>
               Completed calls will appear here.
             </div>
           )}

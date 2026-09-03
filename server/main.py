@@ -156,6 +156,8 @@ async def lifespan(app: FastAPI):
         await broker.start()
 
     asyncio.create_task(batch_inference_worker())
+    from server.audiosocket_server import start_audiosocket_server
+    asyncio.create_task(start_audiosocket_server())
     log.info("Startup complete.")
 
     yield  # Server is running
@@ -202,8 +204,12 @@ async def root():
 
 
 # ── GET /health ────────────────────────────────────────────────────────────
-@app.get("/health", response_model=HealthResponse)
-async def health():
+@app.get("/health")
+async def health(extended: bool = False):
+    if extended:
+        from server.health_extended import get_system_status
+        return await get_system_status()
+        
     from server.pubsub import broker
     from server._model_cache import get_aasist
     active_calls = await broker.get_active_calls()

@@ -60,3 +60,14 @@ privacy:
 webrtc:
   stun_server: "stun:stun.l.google.com:19302"   # free public STUN, no API key
   max_room_idle_sec: 300    # destroy signaling room after 5min of inactivity
+
+# ── Asterisk Integration ──────────────────────────────────────────
+asterisk:
+  audiosocket_host: '0.0.0.0'
+  audiosocket_port: 1579
+
+# ── Alert Delivery ──────────────────────────────────────────────
+alerts:
+  telegram_bot_token: ''     # Get from @BotFather on Telegram
+  telegram_chat_id: ''       # Get from /getUpdates API call  
+  webhook_url: ''            # Optional: POST JSON to any URL
