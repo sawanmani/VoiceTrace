@@ -176,12 +176,12 @@ html, body {
   align-items: center;
   justify-content: center;
   color: var(--text-primary);
-  font-size: 18px;
+  font-size: 22px;
   box-shadow: 0 4px 14px rgba(196, 138, 102, 0.4);
 }
 
 .brand-name {
-  font-size: 18px;
+  font-size: 22px;
   font-weight: 700;
   letter-spacing: -0.5px;
   background: linear-gradient(135deg, #FAF4EB, #EDCDB1);
@@ -191,7 +191,7 @@ html, body {
 }
 
 .brand-tag {
-  font-size: 11px;
+  font-size: 15px;
   font-weight: 500;
   color: var(--text-muted);
   padding: 2px 8px;
@@ -213,7 +213,7 @@ html, body {
   gap: 7px;
   padding: 6px 14px;
   border-radius: 100px;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 600;
   letter-spacing: 0.3px;
   transition: var(--transition);
@@ -248,7 +248,7 @@ html, body {
 
 .header-time {
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: 17px;
   color: var(--text-muted);
 }
 
@@ -302,7 +302,7 @@ html, body {
 }
 
 .card-title {
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -310,7 +310,7 @@ html, body {
 }
 
 .card-badge {
-  font-size: 11px;
+  font-size: 15px;
   font-weight: 600;
   padding: 3px 8px;
   border-radius: 100px;
@@ -340,7 +340,7 @@ html, body {
 }
 
 .gauge-title {
-  font-size: 11px;
+  font-size: 15px;
   font-weight: 600;
   letter-spacing: 1.5px;
   text-transform: uppercase;
@@ -384,7 +384,7 @@ html, body {
 }
 
 .gauge-value {
-  font-size: 42px;
+  font-size: 46px;
   font-weight: 800;
   letter-spacing: -2px;
   line-height: 1;
@@ -392,14 +392,14 @@ html, body {
 }
 
 .gauge-unit {
-  font-size: 13px;
+  font-size: 17px;
   font-weight: 500;
   color: var(--text-muted);
   margin-top: 2px;
 }
 
 .gauge-label {
-  font-size: 18px;
+  font-size: 22px;
   font-weight: 700;
   letter-spacing: -0.5px;
   margin-bottom: 6px;
@@ -407,7 +407,7 @@ html, body {
 }
 
 .gauge-sublabel {
-  font-size: 12px;
+  font-size: 16px;
   color: var(--text-secondary);
 }
 
@@ -457,7 +457,7 @@ html, body {
 }
 
 .metric-label {
-  font-size: 11px;
+  font-size: 15px;
   font-weight: 500;
   color: var(--text-muted);
   text-transform: uppercase;
@@ -466,7 +466,7 @@ html, body {
 }
 
 .metric-value {
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 700;
   font-family: var(--font-mono);
   letter-spacing: -0.5px;
@@ -478,7 +478,7 @@ html, body {
 .metric-value.yellow{ color: var(--accent-yellow); }
 
 .metric-delta {
-  font-size: 11px;
+  font-size: 15px;
   color: var(--text-muted);
   margin-top: 2px;
 }
@@ -529,7 +529,7 @@ html, body {
 .log-content { flex: 1; min-width: 0; }
 
 .log-message {
-  font-size: 13px;
+  font-size: 17px;
   font-weight: 500;
   color: var(--text-primary);
   white-space: nowrap;
@@ -539,14 +539,14 @@ html, body {
 
 .log-time {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 15px;
   color: var(--text-muted);
   margin-top: 2px;
 }
 
 .log-score {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 600;
   padding: 2px 7px;
   border-radius: 6px;
@@ -579,14 +579,14 @@ html, body {
 }
 
 .explain-feature {
-  font-size: 13px;
+  font-size: 17px;
   font-weight: 500;
   color: var(--text-secondary);
 }
 
 .explain-pct {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--text-primary);
 }
@@ -617,7 +617,7 @@ html, body {
   padding: 11px 16px;
   border-radius: var(--radius-sm);
   border: 1px solid transparent;
-  font-size: 13px;
+  font-size: 17px;
   font-weight: 600;
   font-family: var(--font-sans);
   cursor: pointer;
@@ -680,7 +680,7 @@ html, body {
 }
 
 .footer-left {
-  font-size: 12px;
+  font-size: 16px;
   color: var(--text-muted);
 }
 
@@ -688,7 +688,7 @@ html, body {
   display: flex;
   align-items: center;
   gap: 16px;
-  font-size: 12px;
+  font-size: 16px;
   color: var(--text-muted);
   font-family: var(--font-mono);
 }
@@ -706,7 +706,7 @@ html, body {
   gap: 10px;
   padding: 10px 16px;
   border-radius: var(--radius-sm);
-  font-size: 13px;
+  font-size: 17px;
   font-weight: 500;
   border: 1px solid;
 }
@@ -764,11 +764,11 @@ html, body {
   margin-bottom: 10px;
 }
 
-.alert-icon { font-size: 20px; }
+.alert-icon { font-size: 24px; }
 
 .alert-title {
   flex: 1;
-  font-size: 14px;
+  font-size: 18px;
   font-weight: 700;
   letter-spacing: -0.2px;
 }
@@ -781,7 +781,7 @@ html, body {
   border: none;
   color: var(--text-muted);
   cursor: pointer;
-  font-size: 16px;
+  font-size: 20px;
   padding: 4px 6px;
   border-radius: 6px;
   transition: var(--transition);
@@ -789,7 +789,7 @@ html, body {
 .alert-dismiss:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
 
 .alert-recommendation {
-  font-size: 13px;
+  font-size: 17px;
   color: var(--text-secondary);
   line-height: 1.5;
   margin-bottom: 12px;
@@ -803,7 +803,7 @@ html, body {
 }
 
 .alert-score-badge {
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 700;
   padding: 3px 10px;
   border-radius: 100px;
@@ -813,7 +813,7 @@ html, body {
 .alert-score-badge[data-band="medium"] { background: rgba(237, 205, 177, 0.15); color: var(--accent-peach); }
 
 .alert-window, .alert-latency {
-  font-size: 11px;
+  font-size: 15px;
   color: var(--text-muted);
   font-family: var(--font-mono);
 }
@@ -868,7 +868,7 @@ html, body {
 .history-content { flex: 1; min-width: 0; }
 
 .history-id {
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 600;
   font-family: var(--font-mono);
   color: var(--text-primary);
@@ -878,14 +878,14 @@ html, body {
 }
 
 .history-meta {
-  font-size: 11px;
+  font-size: 15px;
   color: var(--text-muted);
   margin-top: 2px;
 }
 
 .history-score {
   font-family: var(--font-mono);
-  font-size: 18px;
+  font-size: 22px;
   font-weight: 700;
   flex-shrink: 0;
 }

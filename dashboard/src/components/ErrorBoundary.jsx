@@ -27,11 +27,11 @@ export class ErrorBoundary extends React.Component {
             <p style={{ margin: '0 0 24px', fontSize: '14px', lineHeight: 1.6, color: 'var(--text-secondary, #7A513E)' }}>
               The application encountered a fatal exception and was forced to halt. 
               <br/><br/>
-              <code style={{ background: 'rgba(0,0,0,0.05)', padding: '4px 8px', borderRadius: 4, fontSize: 12 }}>{this.state.error?.toString()}</code>
+              <code style={{ background: 'rgba(0,0,0,0.05)', padding: '4px 8px', borderRadius: 4, fontSize: 16 }}>{this.state.error?.toString()}</code>
             </p>
             <button 
               onClick={() => window.location.reload()}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'var(--accent-rust, #991B1B)', color: '#FFF', border: 'none', padding: '12px 24px', borderRadius: 100, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'var(--accent-rust, #991B1B)', color: '#FFF', border: 'none', padding: '12px 24px', borderRadius: 100, fontSize: 17, fontWeight: 700, cursor: 'pointer' }}
             >
               <RefreshCw size={16} /> Reboot Application
             </button>

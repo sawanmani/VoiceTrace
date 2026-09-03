@@ -140,6 +140,8 @@ async def batch_inference_worker():
             if risk_event.band == "high" and not state.incident_generated:
                 state.incident_generated = True
                 asyncio.create_task(generate_incident_report(call_id, [risk_event.to_dict()]))
+                from server.alert_dispatcher import dispatch_alert
+                asyncio.create_task(dispatch_alert(call_id, risk_event.to_dict()))
                 
             asyncio.create_task(log_event(call_id, risk_event.to_dict()))
             asyncio.create_task(manager.broadcast(call_id, risk_event.to_dict()))

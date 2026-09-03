@@ -10,7 +10,7 @@ export default function EventLog({ events }) {
       </div>
       <div className="log-list">
         {events.length === 0 && (
-          <div style={{ color: '#475569', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>
+          <div style={{ color: '#475569', fontSize: 17, textAlign: 'center', padding: '24px 0' }}>
             No events yet. Start a session to begin.
           </div>
         )}

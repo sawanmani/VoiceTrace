@@ -36,7 +36,7 @@ export default function FileUpload({ onResults, disabled }) {
         {loading ? '⏳ Analyzing…' : '📁 Analyze Audio File'}
       </button>
       {error && (
-        <div style={{ color: '#f87171', fontSize: 12, marginTop: 6, textAlign: 'center' }}>
+        <div style={{ color: '#f87171', fontSize: 16, marginTop: 6, textAlign: 'center' }}>
           {error}
         </div>
       )}

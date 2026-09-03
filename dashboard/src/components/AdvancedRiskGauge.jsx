@@ -9,7 +9,7 @@ export default function AdvancedRiskGauge({ score, liveness, callerIdentity, cha
     <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 4, height: '100%', display: 'flex', flexDirection: 'column' }}>
       
       <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', borderBottom: '1px solid var(--border)' }}>
-        <h3 style={{ margin: 0, fontSize: 13, fontWeight: 800, letterSpacing: 0.5 }}>VOICE AUTHENTICITY RISK // COMPOSITE SCORE (0-100)</h3>
+        <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, letterSpacing: 0.5 }}>VOICE AUTHENTICITY RISK // COMPOSITE SCORE (0-100)</h3>
         <MoreHorizontal size={16} color="var(--text-secondary)" />
       </div>
 
@@ -52,17 +52,17 @@ export default function AdvancedRiskGauge({ score, liveness, callerIdentity, cha
               })}
             </svg>
             <div className="absolute bottom-2 left-0 right-0 text-center">
-              <div style={{ fontSize: 36, fontWeight: 800, lineHeight: 1 }}>{score}</div>
+              <div style={{ fontSize: 40, fontWeight: 800, lineHeight: 1 }}>{score}</div>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', marginTop: 4, fontSize: 10, fontWeight: 700, color: 'var(--text-secondary)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', marginTop: 4, fontSize: 14, fontWeight: 700, color: 'var(--text-secondary)' }}>
               <span>Low</span>
               <span style={{ color: 'var(--accent-rust)' }}>High Risk</span>
             </div>
           </div>
 
           <div style={{ marginTop: 12, background: 'var(--bg-base)', border: '1px solid var(--border)', borderRadius: 4, padding: 8, width: '100%', textAlign: 'left' }}>
-            <div style={{ fontSize: 11, fontWeight: 700 }}>New Liveness & Voiceprint Layer</div>
-            <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 4 }}>
+            <div style={{ fontSize: 15, fontWeight: 700 }}>New Liveness & Voiceprint Layer</div>
+            <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginTop: 4 }}>
               PASSIVE Liveness Score: {liveness ? Math.round(liveness * 100) : '--'}%{' '}
               <span className={`px-1.5 py-0.5 rounded font-semibold ml-1 ${liveness > 0.8 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
                 {liveness > 0.8 ? 'SECURE' : 'WARNING'}
@@ -77,13 +77,13 @@ export default function AdvancedRiskGauge({ score, liveness, callerIdentity, cha
         {/* Right: Verification layers */}
         <div className="flex-[1.5] flex flex-col gap-3 w-full lg:pl-4 lg:border-l border-[var(--border)]">
           <div>
-            <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 4 }}>CALLER IDENTITY VERIFICATION</div>
+            <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 4 }}>CALLER IDENTITY VERIFICATION</div>
             <div className="mb-3"><span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold">OPT-IN ENABLED</span></div>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
               <div style={{ background: '#E5E7EB', padding: 6, borderRadius: '50%' }}><UserCircle color="#4B5563" size={16} /></div>
               <div>
-                <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Voiceprint Match:</div>
-                <div style={{ fontSize: 10 }}>
+                <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>Voiceprint Match:</div>
+                <div style={{ fontSize: 14 }}>
                   {callerIdentity === null ? (
                     <span className="bg-gray-200 text-gray-700 px-2 py-0.5 rounded font-bold">NOT ENROLLED / NEW CALLER</span>
                   ) : (
@@ -94,7 +94,7 @@ export default function AdvancedRiskGauge({ score, liveness, callerIdentity, cha
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
               <ShieldCheck color="#10B981" size={14} />
-              <div style={{ fontSize: 11 }}>Accurate Liveness: <span style={{ color: '#10B981', fontWeight: 600 }}>{liveness ? Math.round(liveness * 100) : '--'}%</span></div>
+              <div style={{ fontSize: 15 }}>Accurate Liveness: <span style={{ color: '#10B981', fontWeight: 600 }}>{liveness ? Math.round(liveness * 100) : '--'}%</span></div>
             </div>
           </div>
         </div>

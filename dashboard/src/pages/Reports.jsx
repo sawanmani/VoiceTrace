@@ -47,9 +47,9 @@ export default function Reports() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 40 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <FileText size={32} color="var(--accent-peach)" />
-              <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800 }}>Reports &amp; Logs</h1>
+              <h1 style={{ margin: 0, fontSize: 32, fontWeight: 800 }}>Reports &amp; Logs</h1>
             </div>
-            <button style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg-card)', border: '1px solid var(--border)', padding: '8px 16px', borderRadius: 4, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+            <button style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg-card)', border: '1px solid var(--border)', padding: '8px 16px', borderRadius: 4, cursor: 'pointer', fontSize: 17, fontWeight: 600 }}>
               <Filter size={16} /> Filter Date Range
             </button>
           </div>
@@ -58,25 +58,25 @@ export default function Reports() {
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
                 <tr style={{ background: 'var(--bg-surface)', borderBottom: '1px solid var(--border)' }}>
-                  <th style={{ padding: '16px 24px', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>REPORT ID</th>
-                  <th style={{ padding: '16px 24px', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>DATE</th>
-                  <th style={{ padding: '16px 24px', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>TYPE</th>
-                  <th style={{ padding: '16px 24px', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>STATUS</th>
-                  <th style={{ padding: '16px 24px', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', textAlign: 'right' }}>ACTION</th>
+                  <th style={{ padding: '16px 24px', fontSize: 16, fontWeight: 700, color: 'var(--text-secondary)' }}>REPORT ID</th>
+                  <th style={{ padding: '16px 24px', fontSize: 16, fontWeight: 700, color: 'var(--text-secondary)' }}>DATE</th>
+                  <th style={{ padding: '16px 24px', fontSize: 16, fontWeight: 700, color: 'var(--text-secondary)' }}>TYPE</th>
+                  <th style={{ padding: '16px 24px', fontSize: 16, fontWeight: 700, color: 'var(--text-secondary)' }}>STATUS</th>
+                  <th style={{ padding: '16px 24px', fontSize: 16, fontWeight: 700, color: 'var(--text-secondary)', textAlign: 'right' }}>ACTION</th>
                 </tr>
               </thead>
               <tbody>
                 {reports.map((rep, i) => (
                   <tr key={rep.id + i} style={{ borderBottom: i === reports.length - 1 ? 'none' : '1px solid var(--border)' }}>
-                    <td style={{ padding: '16px 24px', fontSize: 14, fontWeight: 600 }}>{rep.id}</td>
-                    <td style={{ padding: '16px 24px', fontSize: 14 }}>{rep.date}</td>
-                    <td style={{ padding: '16px 24px', fontSize: 14 }}>{rep.type}</td>
-                    <td style={{ padding: '16px 24px', fontSize: 13, fontWeight: 600, color: rep.status === 'Generated' ? 'var(--accent-green)' : 'var(--text-muted)' }}>{rep.status}</td>
+                    <td style={{ padding: '16px 24px', fontSize: 18, fontWeight: 600 }}>{rep.id}</td>
+                    <td style={{ padding: '16px 24px', fontSize: 18 }}>{rep.date}</td>
+                    <td style={{ padding: '16px 24px', fontSize: 18 }}>{rep.type}</td>
+                    <td style={{ padding: '16px 24px', fontSize: 17, fontWeight: 600, color: rep.status === 'Generated' ? 'var(--accent-green)' : 'var(--text-muted)' }}>{rep.status}</td>
                     <td style={{ padding: '16px 24px', textAlign: 'right' }}>
                       <button
                         onClick={() => downloadReport(rep)}
                         disabled={rep.status !== 'Generated'}
-                        style={{ background: 'transparent', border: '1px solid var(--border)', borderRadius: 4, padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: rep.status === 'Generated' ? 'pointer' : 'not-allowed', opacity: rep.status === 'Generated' ? 1 : 0.5, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                        style={{ background: 'transparent', border: '1px solid var(--border)', borderRadius: 4, padding: '6px 12px', fontSize: 16, fontWeight: 600, cursor: rep.status === 'Generated' ? 'pointer' : 'not-allowed', opacity: rep.status === 'Generated' ? 1 : 0.5, display: 'inline-flex', alignItems: 'center', gap: 6 }}
                       >
                         <Download size={14} /> Download JSON
                       </button>
