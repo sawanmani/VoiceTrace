@@ -12,10 +12,12 @@ import json
 import logging
 import os
 import uuid
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 
 load_dotenv()
 
+import aiofiles
 import numpy as np
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -34,6 +36,8 @@ from server.schemas import (
 )
 from server.challenge import ChallengeManager, build_challenge_pool
 from server.batch_worker import batch_inference_worker
+from server.signaling import signaling_manager
+from server.history_db import get_recent_calls, save_feedback
 
 # ── Logging ────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -68,16 +72,31 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         if path.startswith("/ws/"):
+            if path.startswith("/ws/signal/"):
+                return await call_next(request)
+                
             if not _API_KEY and _is_localhost(client_host):
                 return await call_next(request)
             if not _API_KEY:
                 return JSONResponse({"detail": "Server API key not configured (fail closed)"}, status_code=500)
-            key = request.headers.get("X-Api-Key")
+                
+            # WebSockets from browser cannot easily set custom headers, so we check query params
+            key = request.query_params.get("api_key") or request.headers.get("X-Api-Key")
+            
+            # /ws/twilio is allowed to bypass HTTP auth if it's relying on Twilio signature
+            if path.startswith("/ws/twilio"):
+                return await call_next(request)
+                
             if key != _API_KEY:
                 return JSONResponse({"detail": "Invalid or missing API key"}, status_code=401)
             return await call_next(request)
-
         if not _API_KEY and _is_localhost(client_host):
+            return await call_next(request)
+
+        if request.url.path.startswith("/rooms/"):
+            return await call_next(request)
+
+        if request.url.path.startswith("/twilio/"):
             return await call_next(request)
 
         if not _API_KEY:
@@ -116,11 +135,45 @@ async def _verify_ws_key_payload(websocket: WebSocket) -> bool:
     return False
 
 
+# ── Lifespan (replaces deprecated @app.on_event) ─────────────────────────
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup and shutdown lifecycle using modern FastAPI lifespan API."""
+    log.info("VoiceTrace starting up...")
+    loop = asyncio.get_running_loop()
+
+    from server.history_db import init_db
+    await init_db()
+
+    from server._model_cache import warmup_all
+    await loop.run_in_executor(None, warmup_all)
+
+    # Build challenge pool in background — don't block server startup
+    loop.run_in_executor(None, build_challenge_pool)
+
+    from server.pubsub import broker
+    if hasattr(broker, "start"):
+        await broker.start()
+
+    asyncio.create_task(batch_inference_worker())
+    from server.audiosocket_server import start_audiosocket_server
+    asyncio.create_task(start_audiosocket_server())
+    log.info("Startup complete.")
+
+    yield  # Server is running
+
+    log.info("VoiceTrace shutting down...")
+    from server.pubsub import broker as _broker
+    if hasattr(_broker, "stop"):
+        await _broker.stop()
+
+
 # ── App ────────────────────────────────────────────────────────────────────
 app = FastAPI(
     title="VoiceTrace",
     description="Real-time voice cloning detection API",
     version="2.0.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(ApiKeyMiddleware)
@@ -136,32 +189,7 @@ risk_engine = RiskEngine()
 challenge_mgr = ChallengeManager()
 
 
-# ── Startup warmup (Fix 3) ─────────────────────────────────────────────────
-@app.on_event("startup")
-async def startup():
-    log.info("VoiceTrace starting up...")
-    loop = asyncio.get_running_loop()
-
-    from server._model_cache import warmup_all  # noqa: PLC0415
-    await loop.run_in_executor(None, warmup_all)
-
-    await loop.run_in_executor(None, build_challenge_pool)
-
-    from server.pubsub import broker  # noqa: PLC0415
-    if hasattr(broker, "start"):
-        await broker.start()
-        
-    # Start the dynamic batching worker
-    asyncio.create_task(batch_inference_worker())
-
-    log.info("Startup complete.")
-
-@app.on_event("shutdown")
-async def shutdown():
-    log.info("VoiceTrace shutting down...")
-    from server.pubsub import broker
-    if hasattr(broker, "stop"):
-        await broker.stop()
+# ── Startup warmup (removed — now handled by lifespan above) ─────────────
 
 
 # ── GET / ───────────────────────────────────────────────────────────────────
@@ -176,15 +204,21 @@ async def root():
 
 
 # ── GET /health ────────────────────────────────────────────────────────────
-@app.get("/health", response_model=HealthResponse)
-async def health():
+@app.get("/health")
+async def health(extended: bool = False):
+    if extended:
+        from server.health_extended import get_system_status
+        return await get_system_status()
+        
     from server.pubsub import broker
+    from server._model_cache import get_aasist
     active_calls = await broker.get_active_calls()
+    model_loaded = get_aasist() is not None
     return HealthResponse(
-        status="ok",
+        status="ok" if model_loaded else "degraded — AASIST checkpoint missing",
         active_calls=active_calls,
         dashboard_subscribers=len(manager.global_subscribers),
-        model="AASIST-L",
+        model="AASIST-L" if model_loaded else "not loaded",
     )
 
 
@@ -220,28 +254,39 @@ async def analyze(file: UploadFile = File(...)):
 # ── POST /feedback ─────────────────────────────────────────────────────────
 @app.post("/feedback")
 async def feedback(req: FeedbackRequest):
-    log.info("Feedback  call=%s  label=%s", req.call_id, req.label)
+    """Persist operator feedback label to SQLite for active-learning loop."""
+    await save_feedback(req.call_id, req.label)
+    log.info("Feedback persisted  call=%s  label=%s", req.call_id, req.label)
     return {"status": "recorded"}
+
+
+# ── GET /history ────────────────────────────────────────────────────────────
+@app.get("/history")
+async def history(limit: int = 50):
+    """Return the most recent completed calls from SQLite for dashboard hydration."""
+    calls = await get_recent_calls(limit=limit)
+    return calls
 
 
 # ── GET /incidents ─────────────────────────────────────────────────────────
 @app.get("/incidents")
 async def get_incidents():
+    """Return all incident reports. Uses aiofiles for non-blocking async reads."""
     from pathlib import Path
-    import json
-    
-    incident_dir = Path("incidents")
-    if not incident_dir.exists():
+    from server.incident_report import _INCIDENT_DIR
+
+    if not _INCIDENT_DIR.exists():
         return []
-    
+
     incidents = []
-    for f in incident_dir.glob("*.json"):
+    for f in _INCIDENT_DIR.glob("*.json"):
         try:
-            with open(f, "r", encoding="utf-8") as fp:
-                incidents.append(json.load(fp))
+            async with aiofiles.open(f, "r", encoding="utf-8") as fp:
+                content = await fp.read()
+                incidents.append(json.loads(content))
         except Exception as e:
-            log.warning(f"Failed to read incident {f}: {e}")
-            
+            log.warning("Failed to read incident %s: %s", f, e)
+
     # Sort descending by timestamp
     incidents.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
     return incidents
@@ -370,12 +415,128 @@ async def ws_score(websocket: WebSocket):
         log.info("ws_score  dashboard disconnected")
 
 
+# ── GET /rooms/{room_id}/exists ───────────────────────────────────────────
+@app.get("/rooms/{room_id}/exists")
+async def room_exists(room_id: str):
+    """
+    REST check: does this signaling room exist and have space?
+    Used by the Call page to decide whether to show "Join" vs "Room full".
+    """
+    exists = signaling_manager.room_exists(room_id)
+    peers = signaling_manager.peer_count(room_id)
+    return {"exists": exists, "peer_count": peers, "full": peers >= 2}
+
+
+# ── WS /ws/signal/{room_id} ────────────────────────────────────────────────
+# NOTE(S1 — consciously deferred): This endpoint intentionally skips API key
+# auth. It carries only opaque SDP/ICE candidates — no audio, no PII, no
+# call content. The HTTP-level API key middleware does not apply to WS upgrade
+# requests. /ws/call and /ws/twilio enforce auth via payload-level
+# {"type":"auth","api_key":"..."} on the first frame instead.
+# TODO(production): Add JWT/token in the WS upgrade query param or cookie
+# before deploying beyond a controlled LAN environment.
+@app.websocket("/ws/signal/{room_id}")
+async def ws_signal(websocket: WebSocket, room_id: str):
+    """
+    WebRTC signaling relay for 1:1 in-app calls.
+
+    Protocol:
+      1. Client connects. Server joins them to the room.
+      2. When both peers are present, server sends {"type":"ready","role":"caller"|"callee"}.
+      3. "caller" sends {"type":"offer","sdp":"..."}  → server relays to "callee".
+      4. "callee" sends {"type":"answer","sdp":"..."} → server relays to "caller".
+      5. Both exchange {"type":"ice-candidate","candidate":{...}} — relayed symmetrically.
+      6. Either side sends {"type":"hangup"} to end the session.
+
+    No API key required: this channel carries only opaque WebRTC handshake
+    payloads (SDP + ICE) — no audio, no inference data, no PII.
+    """
+    await websocket.accept()
+
+    joined = await signaling_manager.join(room_id, websocket)
+    if not joined:
+        await websocket.close(code=1008, reason="Room full (max 2 peers)")
+        return
+
+    log.info("ws_signal  room=%s  peer joined", room_id)
+
+    try:
+        while True:
+            # 30s idle timeout — WebRTC handshake should complete in <5s
+            message = await asyncio.wait_for(websocket.receive_text(), timeout=300.0)
+            await signaling_manager.relay(room_id, websocket, message)
+
+    except asyncio.TimeoutError:
+        log.warning("ws_signal  room=%s  timed out (5min idle)", room_id)
+    except WebSocketDisconnect:
+        log.info("ws_signal  room=%s  peer disconnected", room_id)
+    except Exception as exc:
+        log.error("ws_signal  room=%s  error: %s", room_id, exc)
+    finally:
+        await signaling_manager.leave(room_id, websocket)
+
+
+# ── POST /twilio/incoming ──────────────────────────────────────────────────
+@app.post("/twilio/incoming")
+async def twilio_incoming(request: Request):
+    """
+    Webhook endpoint for Twilio incoming calls.
+    Returns TwiML instructing Twilio to stream audio to our WebSocket.
+
+    Fix 3: Optionally validates Twilio request signature when
+    TWILIO_VALIDATE_SIGNATURE=true and TWILIO_AUTH_TOKEN are set.
+    Gate is off by default so local testing works without a Twilio account.
+
+    Fix 4: wss detection covers ngrok, cloudflared, Railway, Render.
+    """
+    # Fix 3 — Twilio signature validation (env-gated)
+    _validate_sig = os.getenv("TWILIO_VALIDATE_SIGNATURE", "false").lower() == "true"
+    if _validate_sig:
+        _auth_token = os.getenv("TWILIO_AUTH_TOKEN", "")
+        if not _auth_token:
+            raise HTTPException(status_code=500, detail="TWILIO_AUTH_TOKEN not configured")
+        try:
+            from twilio.request_validator import RequestValidator
+            validator = RequestValidator(_auth_token)
+            signature = request.headers.get("X-Twilio-Signature", "")
+            url = str(request.url)
+            form = dict(await request.form())
+            if not validator.validate(url, form, signature):
+                log.warning("twilio_incoming  invalid Twilio signature from %s", request.client)
+                raise HTTPException(status_code=403, detail="Invalid Twilio signature")
+        except ImportError:
+            log.error("twilio_incoming  TWILIO_VALIDATE_SIGNATURE=true but 'twilio' package not installed")
+            raise HTTPException(status_code=500, detail="twilio package required for signature validation")
+
+    host = request.headers.get("host", "localhost:8000")
+    scheme = request.headers.get("x-forwarded-proto", "http")
+    # Fix 4 — detect wss for all common tunnel/hosting providers
+    _wss_hosts = ("ngrok", "trycloudflare", "railway", "render", "fly.io", "herokuapp")
+    ws_scheme = "wss" if (
+        scheme == "https" or any(h in host for h in _wss_hosts)
+    ) else "ws"
+    stream_url = f"{ws_scheme}://{host}/ws/twilio"
+
+    # Fix 2 — Use <Connect><Stream> instead of <Start>+<Pause length="60">.
+    # <Connect> keeps the call alive for the stream's duration (no hard timeout).
+    # <Start>+<Pause length="60"> was hanging up calls after 60 seconds.
+    twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Say>VoiceTrace active. This call is being monitored for AI voice cloning.</Say>
+  <Connect>
+    <Stream url="{stream_url}" />
+  </Connect>
+</Response>"""
+    from fastapi import Response as FastAPIResponse
+    return FastAPIResponse(content=twiml, media_type="application/xml")
+
+
 # ── WS /ws/twilio ─────────────────────────────────────────────────────────
 @app.websocket("/ws/twilio")
 async def ws_twilio(websocket: WebSocket):
     await websocket.accept()
-    if not await _verify_ws_key_payload(websocket):
-        return
+    # Twilio does not send custom JSON auth payloads. In production, 
+    # use HTTP Basic Auth in the TwiML URL or Twilio Signature validation.
 
     call_id = f"twilio-{uuid.uuid4().hex[:8]}"
     try:

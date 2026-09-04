@@ -1,5 +1,5 @@
 import { formatTime } from '../../lib/utils';
-import { THRESHOLD_HIGH, THRESHOLD_MEDIUM } from '../../lib/constants';
+import { bandFromScore } from '../../lib/bandFromScore';
 
 export const createCallSlice = (set, get) => ({
   completedCall: null,
@@ -7,14 +7,14 @@ export const createCallSlice = (set, get) => ({
 
   resetCalls: () => set({ completedCall: null }),
 
+  // Hydrate recentCalls from GET /history on dashboard mount
+  setRecentCalls: (calls) => set({ recentCalls: calls }),
+
   finalizeCall: (callId, durationSec) => {
     const peak = get().getPeakRisk();
     const windows = get().getWindowCount();
     
-    const band = peak >= THRESHOLD_HIGH ? 'high'
-               : peak >= THRESHOLD_MEDIUM ? 'medium'
-               : peak >= (THRESHOLD_MEDIUM / 2) ? 'uncertain'
-               : 'low';
+    const band = bandFromScore(peak);
     
     const callData = {
       call_id: callId || `call-${Math.floor(Math.random() * 10000)}`,

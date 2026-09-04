@@ -69,6 +69,25 @@ class CallContext:
     caller_identity_match_score: Optional[float] = None # F3 voiceprint match
 
 
+# ── Band utility (single source of truth) ─────────────────────────────────
+
+def band_from_score(risk_score: int) -> str:
+    """
+    Map a 0–100 composite risk score to a named band.
+
+    This is the single source of truth used by RiskEngine, ConnectionManager,
+    and (via the API contract) the frontend. Do not inline this logic elsewhere.
+
+    ⚠ KEEP IN SYNC WITH dashboard/src/lib/bandFromScore.js
+    If thresholds change here, update THRESHOLD_HIGH/MEDIUM/UNCERTAIN in
+    dashboard/src/lib/constants.js and bandFromScore.js to match.
+    """
+    if risk_score >= THRESHOLD_HIGH:      return "high"
+    if risk_score >= THRESHOLD_MEDIUM:    return "medium"
+    if risk_score >= THRESHOLD_UNCERTAIN: return "uncertain"
+    return "low"
+
+
 # ── Risk Engine ────────────────────────────────────────────────────────────
 
 class RiskEngine:
@@ -117,14 +136,8 @@ class RiskEngine:
         composite = float(max(0.0, min(1.0, composite)))
         risk_score = int(round(composite * 100))
 
-        # Determine band
-        band = "low"
-        if risk_score >= THRESHOLD_HIGH:
-            band = "high"
-        elif risk_score >= THRESHOLD_MEDIUM:
-            band = "medium"
-        elif risk_score >= THRESHOLD_UNCERTAIN:
-            band = "uncertain"
+        # Determine band using the shared utility
+        band = band_from_score(risk_score)
 
         recommendation = RECOMMENDATIONS.get(band, RECOMMENDATIONS["low"])
 

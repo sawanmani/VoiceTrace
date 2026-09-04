@@ -102,13 +102,19 @@ def pad_or_trim(audio: np.ndarray, target_len: int) -> np.ndarray:
     - If empty: return silence.
     - If shorter: repeat-pad to fill.
     - If longer: take the first `target_len` samples.
+
+    All three branches return an owned, writable float32 array.
+    The trim branch uses .copy() so the caller never holds a view
+    that pins a larger upstream buffer or inherits read-only status
+    from an np.frombuffer()-sourced input.
     """
     if len(audio) == 0:
         return np.zeros(target_len, dtype=np.float32)
     if len(audio) < target_len:
         repeats = (target_len // len(audio)) + 1
         audio = np.tile(audio, repeats)
-    return audio[:target_len]
+    # .copy() ensures: (a) writable, (b) independent of upstream buffer
+    return audio[:target_len].copy()
 
 
 
