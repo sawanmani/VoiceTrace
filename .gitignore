@@ -1,5 +1,6 @@
-﻿# Byte-compiled / optimized / DLL files
+# Byte-compiled / optimized / DLL files
 __pycache__/
+**/__pycache__/
 *.py[cod]
 *.class
 
@@ -28,6 +29,7 @@ htmlcov/
 models/asr_cache/
 models/spk_cache/
 models/weights/
+models/challenge_pool/
 samples/*.wav
 !samples/demo_*.wav
 
@@ -40,11 +42,20 @@ history.db
 # Generated reports
 incidents/*.json
 
+# Logs
+*.log
+logs/
+
 # Node / Frontend
+node_modules/
 dashboard/node_modules/
 dashboard/dist/
 dashboard/.npm/
 npm-debug.log*
+
+# Binaries
+cloudflared.exe
+*.exe
 
 # OS generated files
 .DS_Store
