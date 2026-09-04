@@ -1,46 +1,58 @@
-# Python
-venv/
+# Byte-compiled / optimized / DLL files
 __pycache__/
-*.pyc
-*.pyo
+**/__pycache__/
+*.py[cod]
+*.class
+
+# Environment variables
 .env
+.env.*
+!.env.example
 
-# Model weights (large binaries — document download steps in README instead)
-detector/models/*.pth
-detector/models/*.ckpt
-
-# Node / dashboard
-dashboard/node_modules/
-dashboard/dist/
-dashboard/.vite/
-
-# Audio samples (do not commit real/cloned voice recordings)
-samples/*.wav
-samples/*.mp3
-# Python
+# Virtual environments
 venv/
-__pycache__/
-*.pyc
-*.pyo
-.env
+.venv/
+env/
+ENV/
 
-# Model weights (large binaries — document download steps in README instead)
-detector/models/*.pth
-detector/models/*.ckpt
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
 
-# Node / dashboard
-dashboard/node_modules/
-dashboard/dist/
-dashboard/.vite/
+# Unit test / coverage reports
+.coverage
+htmlcov/
+.pytest_cache/
 
-# Audio samples (do not commit real/cloned voice recordings)
-samples/*.wav
-samples/*.mp3
-samples/*.flac
-
-# OS/editor
-.DS_Store
-.vscode/
-.idea/
+# Data and models
 models/asr_cache/
-models/challenge_pool/*.wav
+models/spk_cache/
+models/weights/
+models/challenge_pool/
+samples/*.wav
+!samples/demo_*.wav
+
+# SQLite databases
+*.sqlite3
+*.db
+server/*.db
+history.db
+
+# Generated reports
+incidents/*.json
+
+# Logs
+*.log
+logs/
+
+# Node / Frontend
+node_modules/
+dashboard/node_modules/
+dashboard/dist/
+dashboard/.npm/
+npm-debug.log*
+
+# OS generated files
+.DS_Store
+Thumbs.db
