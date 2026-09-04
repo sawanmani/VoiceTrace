@@ -53,6 +53,10 @@ dashboard/dist/
 dashboard/.npm/
 npm-debug.log*
 
+# Binaries
+cloudflared.exe
+*.exe
+
 # OS generated files
 .DS_Store
 Thumbs.db
