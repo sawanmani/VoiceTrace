@@ -7,7 +7,7 @@ export default function IncidentLog({ events }) {
 
   useEffect(() => {
     fetch(`${API_BASE}/incidents`, {
-      headers: { 'X-Api-Key': import.meta.env.VITE_API_KEY || 'dev_key_123' }
+      headers: { 'X-Api-Key': import.meta.env.VITE_API_KEY || '' }
     })
       .then(res => res.json())
       .then(data => {

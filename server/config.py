@@ -74,7 +74,7 @@ WEBRTC_STUN_SERVER: str = _cfg.get("webrtc", {}).get(
 )
 
 # ── Asterisk AudioSocket ───────────────────────────────────────────────────
-AUDIOSOCKET_HOST: str = _cfg.get("asterisk", {}).get("audiosocket_host", "0.0.0.0")
+AUDIOSOCKET_HOST: str = _cfg.get("asterisk", {}).get("audiosocket_host", "127.0.0.1")
 AUDIOSOCKET_PORT: int = _cfg.get("asterisk", {}).get("audiosocket_port", 1579)
 
 # ── Alerts ───────────────────────────────────────────────────────────────

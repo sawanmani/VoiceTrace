@@ -25,7 +25,7 @@ export default function Dashboard() {
   const setRecentCalls = useStore(s => s.setRecentCalls)
   useEffect(() => {
     fetch(`${API_BASE}/history`, {
-      headers: { 'X-Api-Key': import.meta.env.VITE_API_KEY || 'dev_key_123' }
+      headers: { 'X-Api-Key': import.meta.env.VITE_API_KEY || '' }
     })
       .then(r => r.ok ? r.json() : [])
       .then(calls => { if (Array.isArray(calls) && calls.length) setRecentCalls(calls) })

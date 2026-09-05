@@ -322,7 +322,7 @@ function Lobby({ onJoin }) {
     // Check if room exists and has space before opening the WebSocket
     try {
       const res = await fetch(`${API_BASE}/rooms/${id}/exists`, {
-        headers: { 'X-Api-Key': import.meta.env.VITE_API_KEY || 'dev_key_123' }
+        headers: { 'X-Api-Key': import.meta.env.VITE_API_KEY || '' }
       });
       if (res.ok) {
         const data = await res.json();
@@ -628,8 +628,29 @@ export default function Call() {
             </div>
           )}
 
+          {/* Error state */}
+          {callState === 'error' && (
+            <div style={{
+              flex: 1, display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center', gap: 16,
+            }}>
+              <AlertTriangle size={48} color="#ef4444" />
+              <div style={{ fontSize: 22, fontWeight: 700, color: 'rgba(255,255,255,0.5)' }}>Connection failed. Could not establish call.</div>
+              <button
+                onClick={() => { setActiveRoomId(null); navigate('/call'); }}
+                style={{
+                  background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)',
+                  color: '#ef4444', borderRadius: 10, padding: '10px 24px',
+                  cursor: 'pointer', fontSize: 17, fontWeight: 700,
+                }}
+              >
+                Try Again
+              </button>
+            </div>
+          )}
+
           {/* Active call: video tiles */}
-          {callState !== 'ended' && (
+          {callState !== 'ended' && callState !== 'error' && (
             <>
               <div style={{ flex: 1, display: 'flex', gap: 12, minHeight: 0, position: 'relative' }}>
                 {/* Remote peer (large) */}
