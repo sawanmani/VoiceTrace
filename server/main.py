@@ -72,23 +72,12 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         if path.startswith("/ws/"):
-            if path.startswith("/ws/signal/"):
-                return await call_next(request)
-                
-            if not _API_KEY and _is_localhost(client_host):
-                return await call_next(request)
-            if not _API_KEY:
-                return JSONResponse({"detail": "Server API key not configured (fail closed)"}, status_code=500)
-                
-            # WebSockets from browser cannot easily set custom headers, so we check query params
-            key = request.query_params.get("api_key") or request.headers.get("X-Api-Key")
-            
-            # /ws/twilio is allowed to bypass HTTP auth if it's relying on Twilio signature
-            if path.startswith("/ws/twilio"):
-                return await call_next(request)
-                
-            if key != _API_KEY:
-                return JSONResponse({"detail": "Invalid or missing API key"}, status_code=401)
+            # Let ALL WebSocket upgrade requests pass through to the endpoint
+            # handlers. Each /ws/ endpoint calls _verify_ws_key_payload() AFTER
+            # the WS handshake completes, allowing post-connect auth frames.
+            # The old code checked query params here at the HTTP level, which
+            # blocked connections before the handshake could finish — making
+            # payload-level auth dead code.
             return await call_next(request)
         if not _API_KEY and _is_localhost(client_host):
             return await call_next(request)
@@ -111,8 +100,10 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
 
 async def _verify_ws_key_payload(websocket: WebSocket) -> bool:
     """Check API key from initial WebSocket auth payload or query param."""
-    host = (websocket.headers.get("host") or "").split(":", 1)[0].lower()
-    if not _API_KEY and _is_localhost(host):
+    # Use the actual network peer address, NOT the client-controlled Host header.
+    # An attacker could send Host: localhost from the public internet to bypass auth.
+    client_host = websocket.client.host if websocket.client else None
+    if not _API_KEY and _is_localhost(client_host):
         return True
 
     if not _API_KEY:
@@ -155,17 +146,36 @@ async def lifespan(app: FastAPI):
     if hasattr(broker, "start"):
         await broker.start()
 
-    asyncio.create_task(batch_inference_worker())
+    _batch_task = asyncio.create_task(batch_inference_worker())
     from server.audiosocket_server import start_audiosocket_server
-    asyncio.create_task(start_audiosocket_server())
+    _audio_task = asyncio.create_task(start_audiosocket_server())
     log.info("Startup complete.")
 
     yield  # Server is running
 
     log.info("VoiceTrace shutting down...")
+
+    # Cancel background workers
+    _batch_task.cancel()
+    _audio_task.cancel()
+    try:
+        await asyncio.gather(_batch_task, _audio_task, return_exceptions=True)
+    except Exception:
+        pass
+
+    # Close all active WebSocket connections gracefully
+    for ws in list(manager.global_subscribers):
+        try:
+            await ws.close(code=1001, reason="Server shutting down")
+        except Exception:
+            pass
+    manager.global_subscribers.clear()
+
     from server.pubsub import broker as _broker
     if hasattr(_broker, "stop"):
         await _broker.stop()
+
+    log.info("Shutdown complete.")
 
 
 # ── App ────────────────────────────────────────────────────────────────────
