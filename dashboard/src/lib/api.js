@@ -6,7 +6,7 @@ export async function analyzeFile(file) {
   
   const res = await fetch(`${API_BASE}/analyze`, { 
     method: 'POST', 
-    headers: { 'X-Api-Key': import.meta.env.VITE_API_KEY || 'dev_key_123' },
+    headers: { 'X-Api-Key': import.meta.env.VITE_API_KEY || '' },
     body: form 
   })
   

@@ -12,14 +12,15 @@ export default function FeedbackButtons({ callId }) {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'X-Api-Key': import.meta.env.VITE_API_KEY || 'dev_key_123'
+          'X-Api-Key': import.meta.env.VITE_API_KEY || ''
         },
         body: JSON.stringify({ call_id: callId, label })
       })
       setStatus('done')
     } catch (e) {
       console.error("Failed to submit feedback", e)
-      setStatus('done') // gracefully handle error for demo
+      setStatus('idle')
+      alert("Failed to save feedback. Please check your network connection.")
     }
   }
 

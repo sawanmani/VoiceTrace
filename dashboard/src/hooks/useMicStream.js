@@ -1,69 +1,31 @@
 import { useState, useCallback, useRef } from 'react'
 import { genCallId } from '../lib/utils'
-import { WS_BASE, MIC_SAMPLE_RATE, MIC_BUFFER_SIZE, DEMO_SEQUENCE, DEMO_INTERVAL_MS, THRESHOLD_HIGH, THRESHOLD_MEDIUM, THRESHOLD_UNCERTAIN } from '../lib/constants'
+import { WS_BASE, MIC_SAMPLE_RATE, MIC_BUFFER_SIZE } from '../lib/constants'
 
 export function useMicStream(onEvent, finalizeCall) {
   const [active, setActive] = useState(false)
   const [callId, setCallId] = useState(null)
+  const [error, setError] = useState(null)
   
   const callWsRef = useRef(null)
   const micRef = useRef(null)
   const processorRef = useRef(null)
   const audioCtxRef = useRef(null)
   const callStartRef = useRef(null)
-  
-  const demoRef = useRef(null)
-  const _demoIdx = useRef(0)
-
-  const _startDemo = useCallback((id) => {
-    _demoIdx.current = 0
-    demoRef.current = setInterval(() => {
-      const base = DEMO_SEQUENCE[_demoIdx.current % DEMO_SEQUENCE.length] + (Math.random() - 0.5) * 0.06
-      const clamped = Math.max(0, Math.min(1, base))
-      const score = Math.round(clamped * 100)
-      const band = score >= THRESHOLD_HIGH ? 'high'
-                 : score >= THRESHOLD_MEDIUM ? 'medium'
-                 : score >= THRESHOLD_UNCERTAIN ? 'uncertain'
-                 : 'low'
-      
-      onEvent({
-        risk_score: score,
-        band,
-        signals: {
-          spectral_artifact_score: Math.min(1, clamped + (Math.random() - 0.5) * 0.2),
-          prosody_irregularity_score: Math.min(1, clamped + (Math.random() - 0.5) * 0.25),
-          gan_artifact_score: Math.min(1, clamped * 1.1 + (Math.random() - 0.5) * 0.15),
-          f0_trajectory_score: Math.min(1, clamped + (Math.random() - 0.5) * 0.3),
-          phase_coherence_score: Math.min(1, clamped * 0.9 + (Math.random() - 0.5) * 0.2),
-          liveness_score: Math.max(0, 0.85 - clamped * 0.6),
-          caller_context_score: 0.3,
-          transaction_context_score: 0.5,
-        },
-        recommendation: band === 'high'
-          ? 'HIGH RISK: Recommend callback verification before approving any transfer.'
-          : band === 'medium'
-            ? 'Borderline signal detected. Request additional identity verification.'
-            : 'Voice appears genuine. No action required.',
-        call_id: id,
-        window_index: _demoIdx.current,
-        latency_ms: 28 + Math.random() * 40,
-      })
-      _demoIdx.current++
-    }, DEMO_INTERVAL_MS)
-  }, [onEvent])
 
   const startMic = useCallback(async () => {
+    setError(null)
     const id = genCallId()
     setCallId(id)
     callStartRef.current = Date.now()
 
-    // Open call WebSocket
+    // Open call WebSocket (no ?api_key= in wsUrl anymore)
     const apiKey = import.meta.env.VITE_API_KEY ?? ''
     const ws = new WebSocket(`${WS_BASE}/ws/call/${id}?api_key=${apiKey}`)
     callWsRef.current = ws
     
     ws.onopen = () => {
-      // Auth handled via query param
+      ws.send(JSON.stringify({ type: 'auth', api_key: apiKey }))
     }
     
     ws.onmessage = (ev) => {
@@ -71,12 +33,14 @@ export function useMicStream(onEvent, finalizeCall) {
     }
     
     ws.onerror = (err) => {
-      console.error("WebSocket authentication or transport error:", err)
+      console.error("WebSocket transport error:", err)
     }
     
     ws.onclose = (ev) => {
       if (ev.code === 1008) {
         console.error('WebSocket auth rejected (1008). Check VITE_API_KEY.')
+        setError('Connection failed — check API key.')
+        setActive(false)
       }
     }
 
@@ -109,14 +73,14 @@ export function useMicStream(onEvent, finalizeCall) {
       muteNode.connect(ctx.destination)
       setActive(true)
     } catch (err) {
-      // Close the WS opened above if mic fails, then fallback to demo
+      // Close the WS opened above if mic fails
       if (ws.readyState !== WebSocket.CLOSED) ws.close()
       callWsRef.current = null
-      console.warn('Mic unavailable — starting demo mode:', err.message)
-      setActive(true)
-      _startDemo(id)
+      console.error('Mic unavailable:', err.message)
+      setError('Connection failed — check API key or microphone permissions.')
+      setActive(false)
     }
-  }, [onEvent, _startDemo])
+  }, [onEvent, finalizeCall])
 
   const stopMic = useCallback(() => {
     micRef.current?.getTracks().forEach(t => t.stop())
@@ -129,8 +93,6 @@ export function useMicStream(onEvent, finalizeCall) {
     callWsRef.current?.close()
     callWsRef.current = null
     
-    clearInterval(demoRef.current)
-
     const durationSec = callStartRef.current ? (Date.now() - callStartRef.current) / 1000 : 0
     if (callId) {
       finalizeCall(callId, durationSec)
@@ -140,5 +102,5 @@ export function useMicStream(onEvent, finalizeCall) {
     setCallId(null)
   }, [callId, finalizeCall])
 
-  return { active, startMic, stopMic }
+  return { active, startMic, stopMic, error }
 }

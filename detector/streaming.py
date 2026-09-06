@@ -216,8 +216,10 @@ class StreamingDetector:
         # Audio ring buffer — stores chunks using deque for fast O(1) appends
         self._chunks = collections.deque()
         self._buffered_samples = 0
-        self._window_samples = int(WINDOW_SEC * TARGET_SR)
         self._stride_samples = int(STRIDE_SEC * TARGET_SR)
+        
+        # 4-second rolling history buffer for inference
+        self._history = np.zeros(NB_SAMP, dtype=np.float32)
 
         # EMA state
         self._ema_prob: Optional[float] = None
@@ -241,41 +243,34 @@ class StreamingDetector:
 
     def get_ready_window(self) -> Optional[np.ndarray]:
         """
-        Extracts a window of `WINDOW_SEC` if enough audio is buffered.
-        Advances the internal pointer by `STRIDE_SEC`.
+        Extracts a window if enough audio is buffered.
+        Maintains a rolling 4-second history buffer to match the model's receptive field.
 
         Implementation notes:
           - np.concatenate() is used instead of tobytes()+np.frombuffer().
-            frombuffer() returns a read-only view of the bytes object. Any
-            in-place numpy op on that view (e.g. LivenessChecker's ZCR calc
-            does `signs[signs == 0] = 1`) raises ValueError: assignment
-            destination is read-only. concatenate() allocates owned, writable
-            memory directly.
+            frombuffer() returns a read-only view of the bytes object.
           - window.copy() ensures the returned array is independent of the
-            large concatenated buffer. Without this, `window` is a slice view:
-            it keeps the ENTIRE concatenated buffer alive in memory until the
-            next call (memory bloat proportional to call duration).
-          - leftover.copy() for the same reason — only the tail needs to be
-            retained in self._chunks, not a reference to the full buffer.
-          - Lock is released before returning: downstream work (torch tensor
-            construction, liveness heuristics) does not hold the deque lock.
+            buffer. leftover.copy() for the same reason.
+          - Lock is released before returning: downstream work does not hold
+            the deque lock.
         """
         with self._lock:
-            if self._buffered_samples < self._window_samples:
+            if self._buffered_samples < self._stride_samples:
                 return None
 
-            # Safe: np.concatenate gives an owned, writable float32 array.
-            # Consistent with the push_full() flush path (line ~314).
-            all_data = np.concatenate(list(self._chunks))  # shape: (N,)
+            all_data = np.concatenate(list(self._chunks))
 
-            # Explicit copy: window is independent of all_data.
-            # Prevents the caller from holding a view into the full buffer.
-            window = all_data[:self._window_samples].copy()
-
-            # Explicit copy: only keep the tail, not a view of all_data.
-            # Without .copy(), self._chunks would pin the full concatenated
-            # buffer in memory until the next get_ready_window() call.
+            # Consume one stride of data
+            new_data = all_data[:self._stride_samples]
             leftover = all_data[self._stride_samples:].copy()
+
+            # Roll history left and insert new data at the end
+            self._history = np.roll(self._history, -self._stride_samples)
+            self._history[-self._stride_samples:] = new_data
+            
+            # Explicit copy so caller doesn't hold reference to our buffer
+            window = self._history.copy()
+
             self._chunks.clear()
             if len(leftover) > 0:
                 self._chunks.append(leftover)
@@ -331,7 +326,7 @@ class StreamingDetector:
             
         # Flush any remaining buffer content
         if self._buffered_samples > 0:
-            pad_len = self._window_samples
+            pad_len = NB_SAMP
             padded = np.zeros(pad_len, dtype=np.float32)
             padded[:self._buffered_samples] = np.concatenate(list(self._chunks))
             results.append(self._score_window_sync(padded))

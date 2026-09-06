@@ -1,5 +1,6 @@
 import Sidebar from '../components/Sidebar';
 import { Settings as SettingsIcon, Sliders, BellRing, Database } from 'lucide-react';
+import { THRESHOLD_HIGH, THRESHOLD_MEDIUM } from '../lib/constants';
 
 export default function Settings() {
   return (
@@ -25,14 +26,14 @@ export default function Settings() {
                   <div style={{ fontSize: 18, fontWeight: 600 }}>High Risk Threshold</div>
                   <div style={{ fontSize: 16, color: 'var(--text-secondary)' }}>Triggers Incident Reports and MFA Escalation</div>
                 </div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--accent-rust)' }}>70 / 100</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--accent-rust)' }}>{THRESHOLD_HIGH} / 100</div>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderTop: '1px solid var(--border)' }}>
                 <div>
                   <div style={{ fontSize: 18, fontWeight: 600 }}>Medium Risk Threshold</div>
                   <div style={{ fontSize: 16, color: 'var(--text-secondary)' }}>Flags sessions for manual review</div>
                 </div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--accent-peach)' }}>40 / 100</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--accent-peach)' }}>{THRESHOLD_MEDIUM} / 100</div>
               </div>
             </div>
 

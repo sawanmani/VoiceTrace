@@ -8,67 +8,83 @@ import json
 import logging
 from pathlib import Path
 from typing import List, Dict, Any
+from datetime import datetime
 
 import aiosqlite
 
 log = logging.getLogger("voicetrace.history_db")
 _DB_PATH = Path("models") / "history.db"
 
+_conn = None
+
+async def get_conn() -> aiosqlite.Connection:
+    global _conn
+    if _conn is None:
+        _conn = await aiosqlite.connect(str(_DB_PATH))
+        await _conn.execute("PRAGMA journal_mode=WAL")
+    return _conn
+
 async def init_db() -> None:
     _DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    async with aiosqlite.connect(str(_DB_PATH)) as conn:
-        await conn.execute("PRAGMA journal_mode=WAL")
-        
-        # Table for completed call summaries
-        await conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS calls (
-                call_id TEXT PRIMARY KEY,
-                time TEXT NOT NULL,
-                peak_risk REAL NOT NULL,
-                band TEXT NOT NULL,
-                windows INTEGER NOT NULL,
-                duration_sec INTEGER NOT NULL,
-                completed BOOLEAN NOT NULL DEFAULT 1
-            )
-            """
+    conn = await get_conn()
+    
+    # Table for completed call summaries
+    await conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS calls (
+            call_id TEXT PRIMARY KEY,
+            time TEXT NOT NULL,
+            peak_risk REAL NOT NULL,
+            band TEXT NOT NULL,
+            windows INTEGER NOT NULL,
+            duration_sec INTEGER NOT NULL,
+            completed BOOLEAN NOT NULL DEFAULT 1
         )
-        
-        # Table for individual scored window events
-        await conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS events (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                call_id TEXT NOT NULL,
-                time_str TEXT NOT NULL,
-                risk_score REAL NOT NULL,
-                band TEXT NOT NULL,
-                latency_ms REAL NOT NULL,
-                window_index INTEGER NOT NULL,
-                signals_json TEXT NOT NULL
-            )
-            """
+        """
+    )
+    
+    # Table for individual scored window events
+    await conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            call_id TEXT NOT NULL,
+            time_str TEXT NOT NULL,
+            risk_score REAL NOT NULL,
+            band TEXT NOT NULL,
+            latency_ms REAL NOT NULL,
+            window_index INTEGER NOT NULL,
+            signals_json TEXT NOT NULL
         )
+        """
+    )
 
-        # Table for operator feedback (active-learning loop)
-        # label: 'genuine' | 'spoof'
-        await conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS feedback (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                call_id TEXT NOT NULL,
-                label TEXT NOT NULL,
-                time_str TEXT NOT NULL
-            )
-            """
+    # Table for operator feedback
+    await conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS feedback (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            call_id TEXT NOT NULL,
+            label TEXT NOT NULL,
+            time_str TEXT NOT NULL
         )
-        await conn.commit()
+        """
+    )
+    
+    # Indexes for performance
+    await conn.execute("CREATE INDEX IF NOT EXISTS idx_events_call_id ON events (call_id)")
+    await conn.execute("CREATE INDEX IF NOT EXISTS idx_events_time ON events (time_str)")
+    await conn.execute("CREATE INDEX IF NOT EXISTS idx_calls_time ON calls (time)")
+    await conn.execute("CREATE INDEX IF NOT EXISTS idx_feedback_call_id ON feedback (call_id)")
+    
+    await conn.commit()
 
 async def log_event(call_id: str, event_dict: dict) -> None:
     """Logs a single processed telemetry window."""
     try:
         signals = json.dumps(event_dict.get("signals", {}))
-        async with aiosqlite.connect(str(_DB_PATH)) as conn:
+        conn = await get_conn()
+        if True:
             await conn.execute(
                 """
                 INSERT INTO events 
@@ -77,7 +93,7 @@ async def log_event(call_id: str, event_dict: dict) -> None:
                 """,
                 (
                     call_id,
-                    event_dict.get("timeStr", ""),
+                    datetime.fromtimestamp(event_dict.get("timestamp", 0)).isoformat() if event_dict.get("timestamp") else "",
                     event_dict.get("risk_score", 0.0),
                     event_dict.get("band", "low"),
                     event_dict.get("latency_ms", 0.0),
@@ -92,7 +108,8 @@ async def log_event(call_id: str, event_dict: dict) -> None:
 async def save_call(call_data: dict) -> None:
     """Saves a finalized call summary."""
     try:
-        async with aiosqlite.connect(str(_DB_PATH)) as conn:
+        conn = await get_conn()
+        if True:
             await conn.execute(
                 """
                 INSERT OR REPLACE INTO calls 
@@ -118,7 +135,8 @@ async def get_recent_calls(limit: int = 50) -> List[Dict[str, Any]]:
     await init_db()
     calls = []
     try:
-        async with aiosqlite.connect(str(_DB_PATH)) as conn:
+        conn = await get_conn()
+        if True:
             conn.row_factory = aiosqlite.Row
             cursor = await conn.execute(
                 "SELECT * FROM calls ORDER BY rowid DESC LIMIT ?", (limit,)
@@ -144,7 +162,8 @@ async def save_feedback(call_id: str, label: str) -> None:
     from datetime import datetime
     await init_db()
     try:
-        async with aiosqlite.connect(str(_DB_PATH)) as conn:
+        conn = await get_conn()
+        if True:
             await conn.execute(
                 """
                 INSERT INTO feedback (call_id, label, time_str)
@@ -163,7 +182,8 @@ async def get_feedback_for_call(call_id: str) -> List[Dict[str, Any]]:
     await init_db()
     rows_out = []
     try:
-        async with aiosqlite.connect(str(_DB_PATH)) as conn:
+        conn = await get_conn()
+        if True:
             conn.row_factory = aiosqlite.Row
             cursor = await conn.execute(
                 "SELECT * FROM feedback WHERE call_id = ? ORDER BY id",

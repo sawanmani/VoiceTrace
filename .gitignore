@@ -60,3 +60,11 @@ cloudflared.exe
 # OS generated files
 .DS_Store
 Thumbs.db
+
+# --- Added: closes the credential/binary exposure found in this audit ---
+# Tunnel tool logs and binaries — these can contain live authtokens
+*.log
+ngrok.log
+ngrok.yml
+*.exe
+cloudflared*

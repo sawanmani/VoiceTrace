@@ -58,15 +58,16 @@ def test_streaming_detector_windowing():
     from detector.streaming import StreamingDetector
     detector = StreamingDetector()
 
+    from detector.streaming import NB_SAMP
     SR = 16000
-    # Push exactly 1 second of silence — should trigger one ready window
-    chunk = np.zeros(SR, dtype=np.float32)
+    # Push exactly NB_SAMP (4.04s) of silence — should trigger one ready window
+    chunk = np.zeros(NB_SAMP, dtype=np.float32)
     detector.push(chunk)
 
     window = detector.get_ready_window()
-    assert window is not None, "Expected a ready window after 1s of audio"
+    assert window is not None, "Expected a ready window after 4.04s of audio"
     assert isinstance(window, np.ndarray)
-    assert len(window) == SR, f"Expected {SR} samples, got {len(window)}"
+    assert len(window) == NB_SAMP, f"Expected {NB_SAMP} samples, got {len(window)}"
 
 
 # ── Test 2: get_ready_window returns writable, owned memory ───────────────
