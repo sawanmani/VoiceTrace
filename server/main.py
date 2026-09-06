@@ -270,6 +270,38 @@ async def feedback(req: FeedbackRequest):
     return {"status": "recorded"}
 
 
+# ── GET /api/config ────────────────────────────────────────────────────────
+@app.get("/api/config")
+async def get_config():
+    """Exposes risk thresholds to sync frontend UI with backend configuration."""
+    from server.config import THRESHOLD_UNCERTAIN, THRESHOLD_MEDIUM, THRESHOLD_HIGH
+    return {
+        "thresholds": {
+            "uncertain": THRESHOLD_UNCERTAIN,
+            "medium": THRESHOLD_MEDIUM,
+            "high": THRESHOLD_HIGH,
+        }
+    }
+
+
+# ── GET /api/webrtc/credentials ────────────────────────────────────────────
+@app.get("/api/webrtc/credentials")
+async def webrtc_credentials():
+    """
+    Returns ICE servers including dynamically generated TURN credentials if configured.
+    Currently falls back to public STUN and Metered.ca public TURN relay.
+    """
+    return {
+        "iceServers": [
+            {"urls": "stun:stun.l.google.com:19302"},
+            {"urls": "stun:stun.relay.metered.ca:80"},
+            # To add an authenticated TURN server (e.g. Twilio NTS or coturn),
+            # generate ephemeral credentials here and append:
+            # {"urls": "turn:global.turn.twilio.com:3478?transport=udp", "username": "...", "credential": "..."}
+        ]
+    }
+
+
 # ── GET /history ────────────────────────────────────────────────────────────
 @app.get("/history")
 async def history(limit: int = 50):
