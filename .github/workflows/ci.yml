@@ -41,6 +41,6 @@ jobs:
     - name: Run Tests
       env:
         VOICETRACE_API_KEY: "ci-test-key"
-        PYTHONPATH: "."
+        PYTHONPATH: ${{ github.workspace }}
       run: |
         python -m pytest tests/ -v
