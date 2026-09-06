@@ -33,3 +33,4 @@ aiofiles>=23.2.1
 pytest>=8.0
 anyio[trio]>=4.0   # async pytest support for httpx / starlette TestClient
 httpx>=0.27.0      # async test client for FastAPI
+edge-tts

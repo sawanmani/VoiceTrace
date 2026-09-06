@@ -67,6 +67,14 @@ async def dispatch_alert(call_id: str, risk_event: dict) -> None:
             log.warning("alert_dispatcher  channel %d failed: %s", i, result)
 
 
+_client = None
+
+def get_client() -> httpx.AsyncClient:
+    global _client
+    if _client is None:
+        _client = httpx.AsyncClient(timeout=10.0)
+    return _client
+
 async def _send_telegram(call_id: str, risk_event: dict) -> None:
     """Send a formatted alert message to Telegram."""
     risk_score = risk_event.get("risk_score", 0)
@@ -85,9 +93,10 @@ async def _send_telegram(call_id: str, risk_event: dict) -> None:
 
     signals_text = "\n".join(signal_lines) if signal_lines else "  No signals available"
 
+    escaped_call_id = call_id.replace("_", "\\_")
     message = (
         f"\U0001f6a8 *VoiceTrace \u2014 Clone Detection Alert*\n\n"
-        f"\U0001f4de *Call ID:* `{call_id}`\n"
+        f"\U0001f4de *Call ID:* `{escaped_call_id}`\n"
         f"\u23f0 *Time:* {timestamp}\n"
         f"\U0001f3af *Risk Score:* {risk_score}/100\n"
         f"\U0001f534 *Band:* {band.upper()}\n\n"
@@ -104,16 +113,16 @@ async def _send_telegram(call_id: str, risk_event: dict) -> None:
         "parse_mode": "Markdown",
     }
 
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        resp = await client.post(url, json=payload)
-        if resp.status_code == 200:
-            log.info("alert_dispatcher  Telegram sent  call=%s  risk=%d",
-                    call_id, risk_score)
-        else:
-            log.warning(
-                "alert_dispatcher  Telegram failed  status=%d  body=%s",
-                resp.status_code, resp.text[:200],
-            )
+    client = get_client()
+    resp = await client.post(url, json=payload)
+    if resp.status_code == 200:
+        log.info("alert_dispatcher  Telegram sent  call=%s  risk=%d",
+                call_id, risk_score)
+    else:
+        log.warning(
+            "alert_dispatcher  Telegram failed  status=%d  body=%s",
+            resp.status_code, resp.text[:200],
+        )
 
 
 async def _send_webhook(call_id: str, risk_event: dict) -> None:
@@ -126,7 +135,7 @@ async def _send_webhook(call_id: str, risk_event: dict) -> None:
         **risk_event,
     }
 
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        resp = await client.post(ALERT_WEBHOOK_URL, json=payload)
-        log.info("alert_dispatcher  webhook sent  call=%s  status=%d",
-                call_id, resp.status_code)
+    client = get_client()
+    resp = await client.post(ALERT_WEBHOOK_URL, json=payload)
+    log.info("alert_dispatcher  webhook sent  call=%s  status=%d",
+            call_id, resp.status_code)

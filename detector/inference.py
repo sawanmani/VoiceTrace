@@ -58,7 +58,7 @@ def load_model(checkpoint_path: Path, device: str = "cpu") -> Model:
         )
 
     model = Model(AASIST_L_CONFIG)
-    model.load_state_dict(torch.load(checkpoint_path, map_location=device))
+    model.load_state_dict(torch.load(checkpoint_path, map_location=device, weights_only=True))
     model = model.to(device)
     model.eval()
 
@@ -111,8 +111,9 @@ def pad_or_trim(audio: np.ndarray, target_len: int) -> np.ndarray:
     if len(audio) == 0:
         return np.zeros(target_len, dtype=np.float32)
     if len(audio) < target_len:
-        repeats = (target_len // len(audio)) + 1
-        audio = np.tile(audio, repeats)
+        padded = np.zeros(target_len, dtype=np.float32)
+        padded[:len(audio)] = audio
+        return padded
     # .copy() ensures: (a) writable, (b) independent of upstream buffer
     return audio[:target_len].copy()
 

@@ -19,6 +19,7 @@ export function useWebSocket(url, onEvent) {
   const [reconnecting, setReconnecting] = useState(false)
   const wsRef = useRef(null)
   const retryRef = useRef(null)
+  const pingIntervalRef = useRef(null)
   const retryDelay = useRef(1000)
   const mountedRef = useRef(true)
 
@@ -39,12 +40,19 @@ export function useWebSocket(url, onEvent) {
         setConnected(true)
         setReconnecting(false)
         retryDelay.current = 1000
+
+        pingIntervalRef.current = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'ping' }))
+          }
+        }, 30000)
       }
 
       ws.onclose = (ev) => {
         if (!mountedRef.current) return
         setConnected(false)
         wsRef.current = null
+        if (pingIntervalRef.current) clearInterval(pingIntervalRef.current)
         // Don't reconnect on auth rejection (1008) — would infinite loop
         if (ev.code === 1008) {
           console.error('WebSocket auth rejected (1008). Check VITE_API_KEY.')
@@ -83,6 +91,7 @@ export function useWebSocket(url, onEvent) {
     return () => {
       mountedRef.current = false
       clearTimeout(retryRef.current)
+      if (pingIntervalRef.current) clearInterval(pingIntervalRef.current)
       wsRef.current?.close()
     }
   }, [connect])

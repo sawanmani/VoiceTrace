@@ -19,7 +19,8 @@ export default function FeedbackButtons({ callId }) {
       setStatus('done')
     } catch (e) {
       console.error("Failed to submit feedback", e)
-      setStatus('done') // gracefully handle error for demo
+      setStatus('idle')
+      alert("Failed to save feedback. Please check your network connection.")
     }
   }
 

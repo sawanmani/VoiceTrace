@@ -33,21 +33,67 @@ _RESPONSE_SEC = 4         # seconds to collect caller response audio
 def _render_one(text: str, out_path: Path) -> bool:
     """
     Generate TTS for *text* and write 16kHz mono WAV to *out_path*.
-    Runs inside a subprocess so any COM/SAPI5 blocking is fully isolated.
+    Uses edge-tts (no COM dependency) with pyttsx3 subprocess fallback.
     """
-    script = (
-        "import sys, pyttsx3, soundfile as sf, numpy as np\n"
-        "engine = pyttsx3.init()\n"
-        "engine.setProperty('rate', 140)\n"
-        f"engine.save_to_file({text!r}, {str(out_path)!r})\n"
-        "engine.runAndWait()\n"
-    )
-    result = subprocess.run(
-        [sys.executable, "-c", script],
-        timeout=20,
-        capture_output=True,
-    )
-    return result.returncode == 0 and out_path.exists()
+    # Strategy 1: edge-tts (async, reliable, no COM)
+    try:
+        import edge_tts
+        import io
+
+        mp3_path = out_path.with_suffix(".mp3")
+
+        async def _generate():
+            communicate = edge_tts.Communicate(text, "en-US-JennyNeural", rate="-10%")
+            await communicate.save(str(mp3_path))
+
+        # Run async edge-tts in a fresh event loop (we're called from a thread)
+        asyncio.run(_generate())
+
+        # Convert MP3 → WAV 16kHz mono
+        import soundfile as sf
+        import numpy as np
+        try:
+            from pydub import AudioSegment
+            audio_seg = AudioSegment.from_mp3(str(mp3_path))
+            audio_seg = audio_seg.set_frame_rate(16000).set_channels(1)
+            samples = np.array(audio_seg.get_array_of_samples(), dtype=np.float32)
+            samples /= 32768.0  # int16 → float32
+            sf.write(str(out_path), samples, 16000)
+        except ImportError:
+            # pydub not available — use soundfile directly (requires libsndfile mp3 support)
+            data, sr = sf.read(str(mp3_path), dtype="float32")
+            if data.ndim > 1:
+                data = data.mean(axis=1)
+            if sr != 16000:
+                from server.audio_utils import _resample
+                data = _resample(data, sr, 16000)
+            sf.write(str(out_path), data, 16000)
+
+        # Clean up intermediate MP3
+        mp3_path.unlink(missing_ok=True)
+        return out_path.exists()
+
+    except Exception as e:
+        log.debug("edge-tts failed (%s), falling back to pyttsx3 subprocess", e)
+
+    # Strategy 2: pyttsx3 subprocess fallback (Windows SAPI5)
+    try:
+        script = (
+            "import sys, pyttsx3\n"
+            "engine = pyttsx3.init()\n"
+            "engine.setProperty('rate', 140)\n"
+            f"engine.save_to_file({text!r}, {str(out_path)!r})\n"
+            "engine.runAndWait()\n"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            timeout=20,
+            capture_output=True,
+        )
+        return result.returncode == 0 and out_path.exists()
+    except subprocess.TimeoutExpired:
+        log.error("pyttsx3 subprocess also timed out for: %s", text)
+        return False
 
 
 def build_challenge_pool() -> int:
@@ -167,7 +213,7 @@ class ChallengeManager:
                 word_to_digit.get(w, w) for w in cleaned.split()
                 if w in word_to_digit or w.isdigit()
             )
-            return expected_code in spoken_digits
+            return expected_code == spoken_digits
 
         except Exception as e:
             log.error("ASR verification error: %s", e)

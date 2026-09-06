@@ -45,7 +45,7 @@ export default function MainLayout() {
         connected={connected} 
         active={active} 
         sessionCount={state.sessionCount} 
-        onNewScan={() => document.getElementById('file-upload-input')?.click()} 
+        onNewScan={() => document.getElementById('file-input')?.click()} 
       />
       
       {/* 

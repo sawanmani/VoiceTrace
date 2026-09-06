@@ -1,6 +1,26 @@
+import { useState, useEffect } from 'react';
 import { Play, Activity, Settings2, ShieldCheck, ChevronDown, Bell, Radio, PhoneCall, HelpCircle, UserCircle } from 'lucide-react';
+import { API_BASE } from '../lib/constants';
 
 export default function DashboardHeader({ connected, active, sessionCount, onNewScan }) {
+  const [activeCalls, setActiveCalls] = useState(0);
+
+  useEffect(() => {
+    const fetchHealth = () => {
+      fetch(`${API_BASE}/health`)
+        .then(r => r.json())
+        .then(data => {
+          if (data && data.active_calls !== undefined) {
+            setActiveCalls(data.active_calls);
+          }
+        })
+        .catch(() => {});
+    };
+    fetchHealth();
+    const t = setInterval(fetchHealth, 3000);
+    return () => clearInterval(t);
+  }, []);
+
   return (
     <div className="fixed top-0 left-0 lg:left-[72px] right-0 z-40 h-[72px] flex items-center justify-between px-6 lg:px-8 bg-white/70 backdrop-blur-2xl border-b border-theme-dark/5 shadow-[0_4px_30px_rgba(92,52,37,0.03)] transition-all">
       
@@ -30,8 +50,8 @@ export default function DashboardHeader({ connected, active, sessionCount, onNew
           </div>
           
           <div className="flex items-center gap-2 px-3.5 py-1.5 bg-white/80 rounded-full border border-gray-100 shadow-sm">
-            <div className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-theme-dark shadow-[0_0_8px_rgba(92,52,37,0.8)] animate-pulse' : 'bg-gray-400'}`} />
-            <span className="text-[11px] font-medium text-gray-600">Calls: {active ? 1 : 0}</span>
+            <div className={`w-1.5 h-1.5 rounded-full ${activeCalls > 0 ? 'bg-theme-dark shadow-[0_0_8px_rgba(92,52,37,0.8)] animate-pulse' : 'bg-gray-400'}`} />
+            <span className="text-[11px] font-medium text-gray-600">Calls: {activeCalls}</span>
           </div>
         </div>
 
