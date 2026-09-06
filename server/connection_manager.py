@@ -68,33 +68,35 @@ class ConnectionManager:
 
     async def disconnect_call(self, call_id: str, websocket: WebSocket):
         self.subscribers[call_id].discard(websocket)
-        if not self.subscribers[call_id]:
-            del self.subscribers[call_id]
-        state = call_manager.get_state(call_id)
-        if state:
-            import time
-            from datetime import datetime
-            from server.config import THRESHOLD_HIGH, THRESHOLD_MEDIUM
-            from server.history_db import save_call
+        if not self.subscribers.get(call_id):
+            if call_id in self.subscribers:
+                del self.subscribers[call_id]
             
-            duration_sec = int(time.time() - state.start_time)
-            peak = state.peak_risk
-            
-            band = band_from_score(int(peak))
+            state = call_manager.get_state(call_id)
+            if state:
+                import time
+                from datetime import datetime
+                from server.config import THRESHOLD_HIGH, THRESHOLD_MEDIUM
+                from server.history_db import save_call
                 
-            call_data = {
-                "call_id": call_id,
-                "time": datetime.now().strftime("%H:%M:%S"),
-                "peak_risk": peak,
-                "band": band,
-                "windows": state.windows_processed,
-                "duration_sec": duration_sec,
-                "completed": True
-            }
-            asyncio.create_task(save_call(call_data))
+                duration_sec = int(time.time() - state.start_time)
+                peak = state.peak_risk
+                
+                band = band_from_score(int(peak))
+                    
+                call_data = {
+                    "call_id": call_id,
+                    "time": datetime.now().strftime("%H:%M:%S"),
+                    "peak_risk": peak,
+                    "band": band,
+                    "windows": state.windows_processed,
+                    "duration_sec": duration_sec,
+                    "completed": True
+                }
+                asyncio.create_task(save_call(call_data))
 
-        call_manager.remove_call(call_id)
-        await broker.decrement_active_calls()
+            call_manager.remove_call(call_id)
+            await broker.decrement_active_calls()
 
     async def connect_global(self, websocket: WebSocket):
         self.global_subscribers.add(websocket)

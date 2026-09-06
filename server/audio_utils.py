@@ -150,6 +150,9 @@ def bytes_to_pcm(
     Returns:
         (audio_float32_mono_16khz, sample_rate)
     """
+    if len(data) > 5 * 1024 * 1024:
+        raise ValueError(f"Payload too large: {len(data)} bytes (max 5MB)")
+
     try:
         # Try soundfile first (handles WAV, FLAC, etc.)
         audio, file_sr = sf.read(io.BytesIO(data), dtype="float32")

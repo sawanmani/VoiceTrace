@@ -35,6 +35,8 @@ from fastapi import WebSocket
 log = logging.getLogger("voicetrace.signaling")
 
 
+import time
+
 # ── Room ───────────────────────────────────────────────────────────────────
 
 @dataclass
@@ -43,6 +45,8 @@ class SignalingRoom:
     room_id: str
     peers: List[WebSocket] = field(default_factory=list)
     MAX_PEERS: int = 2
+    created_at: float = field(default_factory=time.time)
+
 
     def is_full(self) -> bool:
         return len(self.peers) >= self.MAX_PEERS
@@ -70,6 +74,12 @@ class SignalingManager:
         self._rooms: Dict[str, SignalingRoom] = {}
 
     def _get_or_create(self, room_id: str) -> SignalingRoom:
+        now = time.time()
+        to_delete = [r_id for r_id, r in self._rooms.items() if (now - r.created_at) > 3600]
+        for r_id in to_delete:
+            del self._rooms[r_id]
+            log.info("signaling  room=%s  destroyed (timeout)", r_id)
+
         if room_id not in self._rooms:
             self._rooms[room_id] = SignalingRoom(room_id=room_id)
         return self._rooms[room_id]

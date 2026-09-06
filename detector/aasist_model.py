@@ -375,7 +375,7 @@ class CONV(nn.Module):
         self.mel = filbandwidthsf
         self.hsupp = torch.arange(-(self.kernel_size - 1) / 2,
                                   (self.kernel_size - 1) / 2 + 1)
-        self.band_pass = torch.zeros(self.out_channels, self.kernel_size)
+        band_pass = torch.zeros(self.out_channels, self.kernel_size)
         for i in range(len(self.mel) - 1):
             fmin = self.mel[i]
             fmax = self.mel[i + 1]
@@ -385,11 +385,13 @@ class CONV(nn.Module):
                 np.sinc(2*fmin*self.hsupp/self.sample_rate)
             hideal = hHigh - hLow
 
-            self.band_pass[i, :] = Tensor(np.hamming(
+            band_pass[i, :] = Tensor(np.hamming(
                 self.kernel_size)) * Tensor(hideal)
+                
+        self.register_buffer('band_pass', band_pass)
 
     def forward(self, x, mask=False):
-        band_pass_filter = self.band_pass.clone().to(x.device)
+        band_pass_filter = self.band_pass.clone()
         if mask:
             A = np.random.uniform(0, 20)
             A = int(A)

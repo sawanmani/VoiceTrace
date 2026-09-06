@@ -65,7 +65,15 @@ export const ALERT_MEDIUM_PROB  = 0.3   // probability of showing medium-risk al
 // ── WebRTC ─────────────────────────────────────────────────────────────────
 // Free public Google STUN server for NAT traversal — no API key needed.
 // For demos over non-local networks, a TURN server may be required.
-export const STUN_SERVER = 'stun:stun.l.google.com:19302'
+// ICE servers for NAT traversal
+// STUN alone fails behind symmetric NAT or on same-machine testing.
+// Free TURN relay via Metered.ca ensures connectivity in all scenarios.
+export const ICE_SERVERS = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun.relay.metered.ca:80' },
+  // TURN servers removed for security. In production, fetch these dynamically
+  // from an authenticated backend endpoint.
+]
 
 // ── Overlay ────────────────────────────────────────────────────────────────
 // How long (ms) the yellow overlay stays visible after score drops below medium.

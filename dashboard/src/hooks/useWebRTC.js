@@ -21,10 +21,10 @@
  *                                                  over the same WS connection
  */
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { WS_BASE, MIC_SAMPLE_RATE, MIC_BUFFER_SIZE, STUN_SERVER } from '../lib/constants';
+import { WS_BASE, MIC_SAMPLE_RATE, MIC_BUFFER_SIZE, ICE_SERVERS } from '../lib/constants';
 
 const DEFAULT_ICE_CONFIG = {
-  iceServers: [{ urls: STUN_SERVER }],
+  iceServers: ICE_SERVERS,
 };
 
 export function useWebRTC({ roomId, onRiskEvent }) {
@@ -71,10 +71,13 @@ export function useWebRTC({ roomId, onRiskEvent }) {
 
   const _startDetection = useCallback(async (stream, callId) => {
     const apiKey = import.meta.env.VITE_API_KEY ?? '';
-    const ws = new WebSocket(`${WS_BASE}/ws/call/${callId}?api_key=${apiKey}`);
+    // Use payload auth (not query-string) to keep tokens out of URLs/logs,
+    // matching useWebSocket.js and useMicStream.js patterns.
+    const ws = new WebSocket(`${WS_BASE}/ws/call/${callId}`);
     detWsRef.current = ws;
 
     ws.onopen = () => {
+      ws.send(JSON.stringify({ type: 'auth', api_key: apiKey }));
       _log('detection WS open, callId=%s', callId);
     };
 

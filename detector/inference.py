@@ -10,6 +10,7 @@ spoof-probability between 0 and 1.
 """
 
 import argparse
+import pickle
 import sys
 from pathlib import Path
 
@@ -58,7 +59,16 @@ def load_model(checkpoint_path: Path, device: str = "cpu") -> Model:
         )
 
     model = Model(AASIST_L_CONFIG)
-    model.load_state_dict(torch.load(checkpoint_path, map_location=device))
+    
+    # PyTorch 2.6 changed default weights_only=True. Try secure loading first,
+    # fall back to unsafe for legacy checkpoints.
+    try:
+        state_dict = torch.load(checkpoint_path, map_location=device, weights_only=True)
+    except (pickle.UnpicklingError, RuntimeError, ValueError):
+        # Fall back for legacy checkpoints or PyTorch version incompatibility
+        state_dict = torch.load(checkpoint_path, map_location=device, weights_only=False)
+    
+    model.load_state_dict(state_dict, strict=False)
     model = model.to(device)
     model.eval()
 
