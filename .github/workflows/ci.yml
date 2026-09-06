@@ -56,7 +56,7 @@ jobs:
         
         # Minimal CONV layer with band_pass buffer
         class MinimalCONV(nn.Module):
-            def __init__(self, out_channels=70, kernel_size=128):
+            def __init__(self, out_channels=70, kernel_size=129):
                 super().__init__()
                 band_pass = torch.zeros(out_channels, kernel_size)
                 self.register_buffer('band_pass', band_pass)
@@ -97,8 +97,14 @@ jobs:
         class MinimalGraphAttentionLayer(nn.Module):
             def __init__(self, in_dim, out_dim, temperature=2.0):
                 super().__init__()
-                self.att_weight = nn.Parameter(torch.randn(in_dim, in_dim))
+                # Fixed: att_weight should be [out_dim, 1] not [in_dim, in_dim]
+                self.att_weight = nn.Parameter(torch.randn(out_dim, 1))
                 self.att_proj = nn.Linear(in_dim, out_dim)
+                # Add missing projection layers
+                self.proj_with_att = nn.Linear(in_dim, out_dim)
+                self.proj_without_att = nn.Linear(in_dim, out_dim)
+                # Add missing batch norm
+                self.bn = nn.BatchNorm1d(out_dim)
         
         # Dummy AASIST model matching actual architecture
         class DummyAASIST(nn.Module):
@@ -108,8 +114,10 @@ jobs:
                 filts = d_args["filts"]
                 gat_dims = d_args["gat_dims"]
                 
+                # Fixed: Use 129 instead of d_args["first_conv"] (128)
+                # CONV class adds 1 to even kernel sizes for symmetry
                 self.conv_time = MinimalCONV(out_channels=filts[0],
-                                             kernel_size=d_args["first_conv"])
+                                             kernel_size=129)
                 self.first_bn = nn.BatchNorm2d(num_features=1)
                 
                 self.encoder = nn.Sequential(
