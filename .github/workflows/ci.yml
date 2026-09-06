@@ -43,18 +43,64 @@ jobs:
         import torch.nn as nn
         from pathlib import Path
         
-        # Create a dummy model that matches AASIST-L architecture expectations
+        # Minimal CONV layer that reproduces the band_pass buffer
+        class MinimalCONV(nn.Module):
+            def __init__(self, out_channels=70, kernel_size=128):
+                super().__init__()
+                import numpy as np
+                # Register band_pass as a buffer (not a parameter)
+                band_pass = torch.zeros(out_channels, kernel_size)
+                self.register_buffer('band_pass', band_pass)
+        
+        # Minimal Residual_block
+        class MinimalResidual(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.bn1 = nn.BatchNorm2d(1)
+                self.conv1 = nn.Conv2d(1, 32, kernel_size=(2, 3), padding=(1, 1))
+                self.bn2 = nn.BatchNorm2d(32)
+                self.conv2 = nn.Conv2d(32, 32, kernel_size=(2, 3), padding=(0, 1))
+                self.mp = nn.MaxPool2d((1, 3))
+            
+            def forward(self, x):
+                return x
+        
+        # Minimal AASIST model that matches the actual architecture
         class DummyAASIST(nn.Module):
             def __init__(self):
                 super().__init__()
-                self.conv1 = nn.Conv1d(1, 128, 11, padding=5)
-                self.linear = nn.Linear(128, 2)
+                
+                # conv_time with band_pass buffer
+                self.conv_time = MinimalCONV(out_channels=70, kernel_size=128)
+                
+                # first_bn (BatchNorm2d, not BatchNorm1d)
+                self.first_bn = nn.BatchNorm2d(num_features=1)
+                
+                # Positional encoding for spectral GAT
+                self.pos_S = nn.Parameter(torch.randn(1, 23, 24))
+                
+                # Master nodes for heterogeneous GAT
+                self.master1 = nn.Parameter(torch.randn(1, 1, 32))
+                self.master2 = nn.Parameter(torch.randn(1, 1, 32))
+                
+                # Encoder: Sequential of residual blocks
+                self.encoder = nn.Sequential(
+                    nn.Sequential(MinimalResidual()),
+                    nn.Sequential(MinimalResidual()),
+                    nn.Sequential(MinimalResidual()),
+                    nn.Sequential(MinimalResidual()),
+                    nn.Sequential(MinimalResidual()),
+                    nn.Sequential(MinimalResidual()),
+                )
+                
+                # Output layer
+                self.out_layer = nn.Linear(5 * 32, 2)
             
             def forward(self, x):
-                x = self.conv1(x)
-                x = x.mean(dim=-1)
-                x = self.linear(x)
-                return x, x
+                x = x.unsqueeze(1)
+                x = self.encoder(x)
+                output = self.out_layer(x.mean(dim=-1).mean(dim=-1))
+                return output, output
         
         model = DummyAASIST()
         checkpoint_path = Path("models/weights/AASIST-L.pth")
