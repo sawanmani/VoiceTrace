@@ -12,6 +12,8 @@ jobs:
     
     steps:
     - uses: actions/checkout@v3
+      with:
+        submodules: false
 
     - name: Set up Python 3.11
       uses: actions/setup-python@v4
@@ -57,7 +59,7 @@ jobs:
         model = DummyAASIST()
         checkpoint_path = Path("models/weights/AASIST-L.pth")
         checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
-        torch.save(model.state_dict(), checkpoint_path, weights_only=True)
+        torch.save(model.state_dict(), checkpoint_path)
         print(f"✓ Created dummy checkpoint at {checkpoint_path}")
         EOF
         
