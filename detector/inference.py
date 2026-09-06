@@ -10,6 +10,7 @@ spoof-probability between 0 and 1.
 """
 
 import argparse
+import pickle
 import sys
 from pathlib import Path
 
