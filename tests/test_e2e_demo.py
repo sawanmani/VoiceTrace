@@ -7,6 +7,20 @@ from pathlib import Path
 from starlette.testclient import TestClient
 from server.main import app
 
+@pytest.fixture(autouse=True)
+def patch_warmup_all(monkeypatch):
+    """Prevent TestClient from loading heavy SpeechBrain models during startup."""
+    def fast_warmup():
+        from server._model_cache import _registry
+        from detector.inference import load_model, DEFAULT_CHECKPOINT
+        import torch
+        if "aasist" not in _registry:
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            _registry["aasist"] = load_model(DEFAULT_CHECKPOINT, device)
+            
+    import server._model_cache
+    monkeypatch.setattr(server._model_cache, "warmup_all", fast_warmup)
+
 def test_fr9_genuine_indian_accent():
     """FR-9: Verify a genuine non-English/Indian-accented clip is scored as LOW risk."""
     client = TestClient(app)
@@ -31,8 +45,7 @@ def test_fr9_genuine_indian_accent():
     for window in data["windows"]:
         assert window["band"] in ["low", "uncertain", "medium"], f"TTS clip was flagged as {window['band']} risk!"
 
-@pytest.mark.anyio
-async def test_webrtc_demo_flow():
+def test_webrtc_demo_flow():
     """
     Simulates the 10-step manual WebRTC demo:
     1. Room creation (signaling)
@@ -40,31 +53,30 @@ async def test_webrtc_demo_flow():
     3. Caller starting side-channel detection
     4. Feeding normal audio -> low risk
     """
-    client = TestClient(app)
-    room_id = f"demo-room-{uuid.uuid4().hex[:6]}"
-    
-    # Start detection side-channel
-    # The server expects api_key in query_params now due to S1 auth fix
-    from server.main import _API_KEY
-    test_key = _API_KEY or "dummy"
-    with client.websocket_connect(f"/ws/call/{room_id}-caller?api_key={test_key}") as det_ws:
+    with TestClient(app) as client:
+        room_id = f"demo-room-{uuid.uuid4().hex[:6]}"
         
-        # Auth is handled via HTTP query parameters now. No JSON payload needed.
-        
-        # Feed 1 second of dummy float32 audio (4000 bytes at 16kHz mono = 1000 samples, actually 1s = 16000 * 4 = 64000 bytes)
-        # Let's just send enough for one 16000-sample window
-        dummy_audio = (b"\x00" * 4) * 16000 
-        det_ws.send_bytes(dummy_audio)
-        
-        # Receive the score
-        score_event = det_ws.receive_json()
-        assert "risk_score" in score_event
-        assert "band" in score_event
-        # Assuming dummy zeroes -> silence -> liveness drops it to low risk, or the detector defaults.
-        # Either way, we successfully got a score back.
+        # Start detection side-channel
+        # The server expects api_key in query_params now due to S1 auth fix
+        from server.main import _API_KEY
+        test_key = _API_KEY or "dummy"
+        with client.websocket_connect(f"/ws/call/{room_id}-caller?api_key={test_key}") as det_ws:
+            
+            # Auth is handled via HTTP query parameters now. No JSON payload needed.
+            
+            # Feed 1 second of dummy float32 audio (4000 bytes at 16kHz mono = 1000 samples, actually 1s = 16000 * 4 = 64000 bytes)
+            # We must push NB_SAMP (64600 samples) to trigger a ready window now
+            dummy_audio = (b"\x00" * 4) * 64600
+            det_ws.send_bytes(dummy_audio)
+            
+            # Receive the score
+            score_event = det_ws.receive_json()
+            assert "risk_score" in score_event
+            assert "band" in score_event
+            # Assuming dummy zeroes -> silence -> liveness drops it to low risk, or the detector defaults.
+            # Either way, we successfully got a score back.
 
-@pytest.mark.anyio
-async def test_twilio_demo_flow():
+def test_twilio_demo_flow():
     """
     Simulates the Twilio Live Call Test:
     1. Incoming Twilio webhook
