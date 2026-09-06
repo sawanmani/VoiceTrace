@@ -68,7 +68,7 @@ def load_model(checkpoint_path: Path, device: str = "cpu") -> Model:
         # Fall back for legacy checkpoints or PyTorch version incompatibility
         state_dict = torch.load(checkpoint_path, map_location=device, weights_only=False)
     
-    model.load_state_dict(state_dict)
+    model.load_state_dict(state_dict, strict=False)
     model = model.to(device)
     model.eval()
 
