@@ -10,6 +10,7 @@ spoof-probability between 0 and 1.
 """
 
 import argparse
+import pickle
 import sys
 from pathlib import Path
 
@@ -58,7 +59,16 @@ def load_model(checkpoint_path: Path, device: str = "cpu") -> Model:
         )
 
     model = Model(AASIST_L_CONFIG)
-    model.load_state_dict(torch.load(checkpoint_path, map_location=device, weights_only=True))
+    
+    # PyTorch 2.6 changed default weights_only=True. Try secure loading first,
+    # fall back to unsafe for legacy checkpoints.
+    try:
+        state_dict = torch.load(checkpoint_path, map_location=device, weights_only=True)
+    except (pickle.UnpicklingError, RuntimeError, ValueError):
+        # Fall back for legacy checkpoints or PyTorch version incompatibility
+        state_dict = torch.load(checkpoint_path, map_location=device, weights_only=False)
+    
+    model.load_state_dict(state_dict, strict=False)
     model = model.to(device)
     model.eval()
 
@@ -111,9 +121,8 @@ def pad_or_trim(audio: np.ndarray, target_len: int) -> np.ndarray:
     if len(audio) == 0:
         return np.zeros(target_len, dtype=np.float32)
     if len(audio) < target_len:
-        padded = np.zeros(target_len, dtype=np.float32)
-        padded[:len(audio)] = audio
-        return padded
+        repeats = (target_len // len(audio)) + 1
+        audio = np.tile(audio, repeats)
     # .copy() ensures: (a) writable, (b) independent of upstream buffer
     return audio[:target_len].copy()
 

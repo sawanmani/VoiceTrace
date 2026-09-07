@@ -245,6 +245,14 @@ class StreamingDetector:
         """
         Extracts a window if enough audio is buffered.
         Maintains a rolling 4-second history buffer to match the model's receptive field.
+
+        Implementation notes:
+          - np.concatenate() is used instead of tobytes()+np.frombuffer().
+            frombuffer() returns a read-only view of the bytes object.
+          - window.copy() ensures the returned array is independent of the
+            buffer. leftover.copy() for the same reason.
+          - Lock is released before returning: downstream work does not hold
+            the deque lock.
         """
         with self._lock:
             if self._buffered_samples < self._stride_samples:
