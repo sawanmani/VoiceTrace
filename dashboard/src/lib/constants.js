@@ -16,10 +16,25 @@ export const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 export const WS_BASE  = API_BASE.replace(/^http/, 'ws')
 
 // ── Risk thresholds (must match config.yaml risk_thresholds) ──────────────
-export const THRESHOLD_LOW       = 0    // 0–24  → low (genuine)
-export const THRESHOLD_UNCERTAIN = 25   // 25–34 → uncertain (borderline)
-export const THRESHOLD_MEDIUM    = 35   // 35–64 → medium (suspicious)
-export const THRESHOLD_HIGH      = 65   // 65–100 → high (spoofed)
+export let THRESHOLD_LOW       = 0    // 0–24  → low (genuine)
+export let THRESHOLD_UNCERTAIN = 25   // 25–34 → uncertain (borderline)
+export let THRESHOLD_MEDIUM    = 35   // 35–64 → medium (suspicious)
+export let THRESHOLD_HIGH      = 65   // 65–100 → high (spoofed)
+
+export async function syncConfig() {
+  try {
+    const res = await fetch(`${API_BASE}/api/config`);
+    if (res.ok) {
+      const data = await res.json();
+      THRESHOLD_UNCERTAIN = data.thresholds.uncertain;
+      THRESHOLD_MEDIUM = data.thresholds.medium;
+      THRESHOLD_HIGH = data.thresholds.high;
+      console.log("[Config] Synced risk thresholds from server:", data.thresholds);
+    }
+  } catch (err) {
+    console.warn("[Config] Failed to sync config, using defaults.", err);
+  }
+}
 
 // ── Risk band colors ─────────────────────────────────────────────────
 export const COLOR_LOW       = '#FAF4EB'  // Light Cream

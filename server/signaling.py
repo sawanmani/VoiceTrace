@@ -47,6 +47,7 @@ class SignalingRoom:
     MAX_PEERS: int = 2
     created_at: float = field(default_factory=time.time)
 
+
     def is_full(self) -> bool:
         return len(self.peers) >= self.MAX_PEERS
 

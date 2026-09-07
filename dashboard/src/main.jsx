@@ -12,8 +12,10 @@ import Reports from './pages/Reports.jsx'
 import Call from './pages/Call.jsx'
 import TwilioConfig from './pages/TwilioConfig.jsx'
 import './index.css'
+import { syncConfig } from './lib/constants.js'
 
-ReactDOM.createRoot(document.getElementById('root')).render(
+syncConfig().then(() => {
+  ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ErrorBoundary>
       <BrowserRouter>
@@ -33,4 +35,5 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     </BrowserRouter>
     </ErrorBoundary>
   </React.StrictMode>
-)
+  )
+})

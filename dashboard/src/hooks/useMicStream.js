@@ -1,4 +1,4 @@
-﻿import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { genCallId } from '../lib/utils'
 import { WS_BASE, MIC_SAMPLE_RATE, MIC_BUFFER_SIZE } from '../lib/constants'
 
@@ -21,7 +21,7 @@ export function useMicStream(onEvent, finalizeCall) {
 
     // Open call WebSocket (no ?api_key= in wsUrl anymore)
     const apiKey = import.meta.env.VITE_API_KEY ?? ''
-    const ws = new WebSocket(`${WS_BASE}/ws/call/${id}`)
+    const ws = new WebSocket(`${WS_BASE}/ws/call/${id}?api_key=${apiKey}`)
     callWsRef.current = ws
     
     ws.onopen = () => {
