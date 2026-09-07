@@ -133,32 +133,11 @@ async def _handle_connection(reader: asyncio.StreamReader, writer: asyncio.Strea
     finally:
         # ── Cleanup ──
         if call_id and state:
-            import time
-            from datetime import datetime
-            from server.risk_engine import band_from_score
-            from server.history_db import save_call
-
-            duration_sec = int(time.time() - state.start_time)
-            peak = state.peak_risk
-            band = band_from_score(int(peak))
-
-            call_data = {
-                "call_id": call_id,
-                "time": datetime.now().strftime("%H:%M:%S"),
-                "peak_risk": peak,
-                "band": band,
-                "windows": state.windows_processed,
-                "duration_sec": duration_sec,
-                "completed": True,
-            }
-            asyncio.create_task(save_call(call_data))
+            from server.call_lifecycle import finalize_call
+            await finalize_call(call_id, state)
 
             call_manager.remove_call(call_id)
             await broker.decrement_active_calls()
-            log.info(
-                "audiosocket  call=%s  disconnected  duration=%ds  peak_risk=%.0f  band=%s",
-                call_id, duration_sec, peak, band,
-            )
 
         writer.close()
         try:

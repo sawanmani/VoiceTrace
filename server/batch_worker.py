@@ -12,7 +12,6 @@ from server.risk_engine import RiskEngine
 from server.connection_manager import manager
 from server.config import LOG_SCORES, RETAIN_AUDIO
 from server.history_db import log_event
-from server.incident_report import generate_incident_report
 
 log = logging.getLogger("voicetrace")
 
@@ -135,14 +134,24 @@ async def batch_inference_worker():
                     risk_event.band, risk_event.latency_ms,
                 )
             
-            # Generate ONE incident report per call (dedup via incident_generated flag).
-            # Without this guard, a 30s high-risk call would generate ~60 separate files.
-            if risk_event.band == "high" and not state.incident_generated:
-                state.incident_generated = True
-                asyncio.create_task(generate_incident_report(call_id, [risk_event.to_dict()]))
-                from server.alert_dispatcher import dispatch_alert
-                asyncio.create_task(dispatch_alert(call_id, risk_event.to_dict()))
-                
+            # ── Audit pipeline ────────────────────────────────────────────
+            #
+            # HIGH-risk handling (Fix M2):
+            #   - Collect EVERY HIGH window in state.high_risk_events so the
+            #     incident report (written at call disconnect) has an accurate
+            #     evidence_windows_count.
+            #   - Alert fires on the FIRST HIGH window only (dedup via flag).
+            #   - Incident report is written at call disconnect in
+            #     call_lifecycle.finalize_call() — NOT here.
+            if risk_event.band == "high":
+                state.high_risk_events.append(risk_event.to_dict())
+                if not state.incident_generated:
+                    state.incident_generated = True
+                    # Alert fires immediately so operators get real-time notification
+                    from server.alert_dispatcher import dispatch_alert
+                    asyncio.create_task(dispatch_alert(call_id, risk_event.to_dict()))
+
             asyncio.create_task(log_event(call_id, risk_event.to_dict()))
             asyncio.create_task(manager.broadcast(call_id, risk_event.to_dict()))
+
 

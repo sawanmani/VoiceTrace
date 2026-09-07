@@ -22,8 +22,11 @@ import numpy as np
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 from starlette.middleware.base import BaseHTTPMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 from server.audio_utils import bytes_to_pcm, decode_twilio_chunk, file_bytes_to_pcm
 from server.config import CORS_ORIGINS, LOG_LEVEL, LOG_SCORES
@@ -48,8 +51,6 @@ log = logging.getLogger("voicetrace")
 
 
 # ── API-Key Middleware (Fix 4) ─────────────────────────────────────────────
-from dotenv import load_dotenv
-load_dotenv()
 _API_KEY = os.getenv("VOICETRACE_API_KEY", "")
 
 
@@ -146,7 +147,48 @@ async def lifespan(app: FastAPI):
     if hasattr(broker, "start"):
         await broker.start()
 
-    _batch_task = asyncio.create_task(batch_inference_worker())
+    async def _run_batch_worker_with_restart():
+        """
+        Restart batch_inference_worker on unexpected crash with exponential backoff.
+        Fix H2: without this, a crash silently stops all inference with no alert.
+        """
+        backoff = 1.0
+        max_backoff = 60.0
+        while True:
+            try:
+                log.info("Batch worker starting (backoff=%.0fs)", backoff)
+                await batch_inference_worker()
+                # If worker returns normally, just restart immediately
+            except asyncio.CancelledError:
+                log.info("Batch worker cancelled — shutting down cleanly")
+                return
+            except Exception as exc:
+                log.critical(
+                    "BATCH WORKER CRASHED: %s — restarting in %.0fs",
+                    exc, backoff, exc_info=True,
+                )
+                # Fire alert so operators know inference has stopped
+                try:
+                    from server.alert_dispatcher import dispatch_alert
+                    await dispatch_alert(
+                        "SYSTEM",
+                        {
+                            "risk_score": 100,
+                            "band": "high",
+                            "signals": {},
+                            "recommendation": (
+                                f"SYSTEM ALERT: Batch inference worker crashed. "
+                                f"No detection running. Error: {exc}. "
+                                f"Restarting in {backoff:.0f}s."
+                            ),
+                        },
+                    )
+                except Exception:
+                    pass  # Don't let alert failure prevent restart
+                await asyncio.sleep(backoff)
+                backoff = min(backoff * 2, max_backoff)
+
+    _batch_task = asyncio.create_task(_run_batch_worker_with_restart())
     from server.audiosocket_server import start_audiosocket_server
     _audio_task = asyncio.create_task(start_audiosocket_server())
     log.info("Startup complete.")
@@ -175,6 +217,16 @@ async def lifespan(app: FastAPI):
     if hasattr(_broker, "stop"):
         await _broker.stop()
 
+    # Close alert dispatcher HTTP client (Fix M7) — prevents resource leak warnings
+    try:
+        from server.alert_dispatcher import get_client
+        _alert_client = get_client()
+        if _alert_client:
+            await _alert_client.aclose()
+            log.info("Alert dispatcher HTTP client closed")
+    except Exception as _e:
+        log.warning("Failed to close alert HTTP client: %s", _e)
+
     log.info("Shutdown complete.")
 
 
@@ -194,6 +246,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── Rate Limiting (Fix H1) ────────────────────────────────────────────────
+# Per-IP sliding-window limits for REST endpoints.
+# WebSocket per-IP limits are enforced in ConnectionManager.connect_call().
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 risk_engine = RiskEngine()
 challenge_mgr = ChallengeManager()
@@ -234,7 +293,8 @@ async def health(extended: bool = False):
 
 # ── POST /analyze ──────────────────────────────────────────────────────────
 @app.post("/analyze", response_model=AnalyzeResponse)
-async def analyze(file: UploadFile = File(...)):
+@limiter.limit("20/minute")
+async def analyze(request: Request, file: UploadFile = File(...)):
     data = await file.read()
     if not data:
         raise HTTPException(status_code=400, detail="Empty file")
@@ -263,7 +323,8 @@ async def analyze(file: UploadFile = File(...)):
 
 # ── POST /feedback ─────────────────────────────────────────────────────────
 @app.post("/feedback")
-async def feedback(req: FeedbackRequest):
+@limiter.limit("60/minute")
+async def feedback(request: Request, req: FeedbackRequest):
     """Persist operator feedback label to SQLite for active-learning loop."""
     await save_feedback(req.call_id, req.label)
     log.info("Feedback persisted  call=%s  label=%s", req.call_id, req.label)
@@ -272,7 +333,8 @@ async def feedback(req: FeedbackRequest):
 
 # ── GET /history ────────────────────────────────────────────────────────────
 @app.get("/history")
-async def history(limit: int = 50):
+@limiter.limit("30/minute")
+async def history(request: Request, limit: int = 50):
     """Return the most recent completed calls from SQLite for dashboard hydration."""
     calls = await get_recent_calls(limit=limit)
     return calls
@@ -280,7 +342,8 @@ async def history(limit: int = 50):
 
 # ── GET /incidents ─────────────────────────────────────────────────────────
 @app.get("/incidents")
-async def get_incidents():
+@limiter.limit("30/minute")
+async def get_incidents(request: Request):
     """Return all incident reports. Uses aiofiles for non-blocking async reads."""
     from pathlib import Path
     from server.incident_report import _INCIDENT_DIR
@@ -300,6 +363,46 @@ async def get_incidents():
     # Sort descending by timestamp
     incidents.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
     return incidents
+
+
+# ── PATCH /incidents/{incident_id}/resolve ─────────────────────────────────
+class IncidentResolveRequest(BaseModel):
+    resolved_by: str
+    notes: str = ""
+
+@app.patch("/incidents/{incident_id}/resolve")
+async def resolve_incident(incident_id: str, req: IncidentResolveRequest):
+    """
+    Mark an incident report as RESOLVED.
+
+    Updates the JSON file in-place — sets status to RESOLVED and records
+    who resolved it and when. Enables closing the audit loop (Fix H3-A).
+    """
+    from server.incident_report import _INCIDENT_DIR
+    from datetime import datetime
+
+    path = _INCIDENT_DIR / f"{incident_id}.json"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail=f"Incident '{incident_id}' not found")
+
+    try:
+        async with aiofiles.open(path, "r", encoding="utf-8") as fp:
+            report = json.loads(await fp.read())
+
+        report["status"] = "RESOLVED"
+        report["resolved_at"] = datetime.now().isoformat()
+        report["resolved_by"] = req.resolved_by
+        report["resolution_notes"] = req.notes
+
+        async with aiofiles.open(path, "w", encoding="utf-8") as fp:
+            await fp.write(json.dumps(report, indent=2))
+
+        log.info("Incident resolved: %s by %s", incident_id, req.resolved_by)
+        return {"status": "resolved", "incident_id": incident_id, "resolved_by": req.resolved_by}
+
+    except Exception as e:
+        log.error("Failed to resolve incident %s: %s", incident_id, e)
+        raise HTTPException(status_code=500, detail="Failed to update incident file")
 
 
 # ── WS /ws/call/{call_id} ─────────────────────────────────────────────────
