@@ -68,3 +68,6 @@ ngrok.log
 ngrok.yml
 *.exe
 cloudflared*
+
+models/history.db*
+detector/__pycache__/
