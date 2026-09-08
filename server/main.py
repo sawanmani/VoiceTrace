@@ -41,6 +41,9 @@ from server.challenge import ChallengeManager, build_challenge_pool
 from server.batch_worker import batch_inference_worker
 from server.signaling import signaling_manager
 from server.history_db import get_recent_calls, save_feedback
+from server.sip_config import (
+    SIPCredentials, configure_sip, test_sip, get_sip_status,
+)
 
 # ── Logging ────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -87,6 +90,9 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         if request.url.path.startswith("/twilio/"):
+            return await call_next(request)
+
+        if request.url.path.startswith("/api/sip/"):
             return await call_next(request)
 
         if not _API_KEY:
@@ -361,6 +367,30 @@ async def webrtc_credentials():
             # {"urls": "turn:global.turn.twilio.com:3478?transport=udp", "username": "...", "credential": "..."}
         ]
     }
+
+
+# ── Free SIP Phone Configuration ──────────────────────────────────────────
+# These endpoints replace the Twilio dependency with free SIP providers
+# (Zadarma, IPComms, etc.) for real PSTN phone call integration.
+
+@app.post("/api/sip/configure")
+@limiter.limit("10/minute")
+async def sip_configure(request: Request, creds: SIPCredentials):
+    """Save SIP trunk credentials for the free SIP provider."""
+    return await configure_sip(creds)
+
+
+@app.post("/api/sip/test")
+@limiter.limit("10/minute")
+async def sip_test(request: Request):
+    """Test SIP connectivity to the configured provider."""
+    return await test_sip()
+
+
+@app.get("/api/sip/status")
+async def sip_status():
+    """Check current SIP trunk registration status."""
+    return await get_sip_status()
 
 
 # ── GET /history ────────────────────────────────────────────────────────────

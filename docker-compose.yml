@@ -1,14 +1,35 @@
 version: "3"
 
 services:
+  # ── Asterisk PBX (free phone calls) ──────────────────────────────────
+  # Receives SIP calls and pipes audio to VoiceTrace via AudioSocket TCP.
+  #
+  # FREE modes:
+  #   1. Local softphone (MicroSIP) → no internet needed
+  #   2. Internet SIP (sip2sip.info / linphone) → anyone can call you free
+  asterisk:
+    build: ./asterisk-docker
+    container_name: voicetrace_asterisk
+    network_mode: host
+    environment:
+      # ── Free SIP Provider ──────────────────────────────────────────
+      # Create a FREE account at one of these:
+      #   sip2sip.info  → https://mdns.sipthor.net/register_sip_account.phtml
+      #   linphone.org  → https://subscribe.linphone.org/
+      #
+      # Then set your credentials here:
+      - SIP_PROVIDER_HOST=${SIP_PROVIDER_HOST:-sip2sip.info}
+      - SIP_USERNAME=${SIP_USERNAME:-}
+      - SIP_PASSWORD=${SIP_PASSWORD:-}
+    restart: always
+
+  # ── TURN Server (WebRTC relay) ──────────────────────────────────────
   turn:
     image: coturn/coturn:latest
     container_name: voicetrace_coturn
     network_mode: host
     command:
-      # Use long-term credentials
       - --lt-cred-mech
-      # Generate credentials: <username>:<password>
       - --user=voicetrace:demo2026
       - --realm=voicetrace.local
       - --listening-port=3478

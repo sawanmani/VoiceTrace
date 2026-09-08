@@ -44,6 +44,7 @@ export default function Sidebar() {
       <NavItem to="/settings" icon={Settings} isActive={path === '/settings'} label="Configuration" />
       <NavItem to="/reports" icon={FileText} isActive={path === '/reports'} label="Audit Logs" />
       <NavItem to="/twilio" icon={LinkIcon} isActive={path === '/twilio'} label="Twilio Config" />
+      <NavItem to="/phone-setup" icon={PhoneCall} isActive={path === '/phone-setup'} label="Free Phone (SIP)" />
       
       <div className="hidden lg:block flex-1" />
     </div>
