@@ -9,7 +9,7 @@
 #
 # All free. No Twilio needed.
 
-FROM debian:bookworm-slim
+FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 

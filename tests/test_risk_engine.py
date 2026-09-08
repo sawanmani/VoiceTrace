@@ -65,7 +65,8 @@ def test_uncertain_risk_band():
         context=context,
     )
 
-    assert event.risk_score == 30
+    # With spoof_prob weight=0.55: 0.55*0.5 = 0.275 → 28
+    assert event.risk_score == 28
     assert event.band == "uncertain"
 
 
@@ -89,7 +90,8 @@ def test_medium_risk_band():
         context=context,
     )
 
-    assert event.risk_score == 45
+    # With spoof_prob weight=0.55: 0.55*0.75 = 0.4125 → 41
+    assert event.risk_score == 41
     assert event.band == "medium"
 
 
@@ -113,7 +115,8 @@ def test_high_risk_band():
         context=context,
     )
 
-    assert event.risk_score == 100
+    # With updated weights (0.55+0.20+0.10+0.10=0.95, voiceprint=0 when None): 95
+    assert event.risk_score == 95
     assert event.band == "high"
 
 

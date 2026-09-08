@@ -30,7 +30,7 @@ def test_fr9_genuine_indian_accent():
     if not sample_path.exists():
         pytest.skip("FR-9 test sample not found. Run edge-tts generation first.")
         
-    from server.main import _API_KEY
+    from server.middleware import _API_KEY
     test_key = _API_KEY or "dummy"
     with open(sample_path, "rb") as f:
         res = client.post("/analyze", files={"file": f}, headers={"X-Api-Key": test_key})
@@ -62,7 +62,7 @@ def test_webrtc_demo_flow():
     with TestClient(app) as client:
         room_id = f"demo-room-{uuid.uuid4().hex[:6]}"
         
-        from server.main import _API_KEY
+        from server.middleware import _API_KEY
         test_key = _API_KEY or "dummy"
         
         # Connect detection channel (sends audio, no response expected here)

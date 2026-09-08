@@ -125,11 +125,14 @@ class RiskEngine:
             context = CallContext()
 
         w = WEIGHTS
+        # Voiceprint mismatch: 0.0 = same speaker (or unavailable), 1.0 = different speaker
+        vp_mismatch = 1.0 - (context.caller_identity_match_score or 1.0)
         composite = (
             w["spoof_prob"]          * detection.smoothed_spoof_prob
             + w["liveness"]          * (1.0 - detection.liveness_score)
             + w["caller_context"]    * (1.0 - context.caller_familiarity)
             + w["transaction_context"] * context.transaction_risk
+            + w.get("voiceprint_mismatch", 0.0) * vp_mismatch
         )
 
         # Clamp to [0, 1] and scale to 0–100
@@ -147,6 +150,7 @@ class RiskEngine:
             "liveness_score": round(detection.liveness_score, 4),
             "caller_context_score": round(1.0 - context.caller_familiarity, 4),
             "transaction_context_score": round(context.transaction_risk, 4),
+            "voiceprint_mismatch_score": round(vp_mismatch, 4),
         }
 
         return RiskEvent(
