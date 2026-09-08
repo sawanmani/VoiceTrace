@@ -368,6 +368,10 @@ async def ws_call(websocket: WebSocket, call_id: str):
                 except ValidationError as e:
                     await websocket.send_json({"error": "Invalid message format", "details": e.errors()})
                     continue
+                
+                if ctrl.type == "ping":
+                    await websocket.send_json({"type": "pong"})
+                    continue
 
                 if ctrl.type == "context":
                     if ctrl.caller_familiarity is not None:
@@ -506,6 +510,13 @@ async def ws_signal(websocket: WebSocket, room_id: str):
         while True:
             # 30s idle timeout — WebRTC handshake should complete in <5s
             message = await asyncio.wait_for(websocket.receive_text(), timeout=300.0)
+            try:
+                msg_data = json.loads(message)
+                if isinstance(msg_data, dict) and msg_data.get("type") == "ping":
+                    await websocket.send_text(json.dumps({"type": "pong"}))
+                    continue
+            except Exception:
+                pass
             await signaling_manager.relay(room_id, websocket, message)
 
     except asyncio.TimeoutError:
