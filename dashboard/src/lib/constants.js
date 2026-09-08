@@ -83,12 +83,17 @@ export const ALERT_MEDIUM_PROB  = 0.3   // probability of showing medium-risk al
 // ICE servers for NAT traversal
 // STUN alone fails behind symmetric NAT or on same-machine testing.
 // Free TURN relay via Metered.ca ensures connectivity in all scenarios.
+const host = new URL(API_BASE).hostname;
+
 export const ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun.relay.metered.ca:80' },
-  // TURN servers removed for security. In production, fetch these dynamically
-  // from an authenticated backend endpoint.
-]
+  { 
+    urls: `turn:${host}:3478?transport=udp`,
+    username: 'voicetrace',
+    credential: 'demo2026'
+  }
+];
 
 // ── Overlay ────────────────────────────────────────────────────────────────
 // How long (ms) the yellow overlay stays visible after score drops below medium.
