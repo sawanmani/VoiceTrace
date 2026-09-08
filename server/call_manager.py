@@ -11,9 +11,12 @@ class CallState:
         self.peak_risk = 0.0
         self.windows_processed = 0
         self.start_time = __import__('time').time()
-        # Ensures only ONE incident report is generated per call session,
-        # even if the call stays at "high" risk for many windows.
+        # Ensures only ONE alert is dispatched per call session (on first HIGH window).
         self.incident_generated: bool = False
+        # Collects every HIGH-risk window dict during the call.
+        # Written to the incident report at call disconnect so
+        # evidence_windows_count is accurate (Fix M2).
+        self.high_risk_events: list = []
 
 class CallManager:
     """

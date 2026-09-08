@@ -75,6 +75,18 @@ def get_client() -> httpx.AsyncClient:
         _client = httpx.AsyncClient(timeout=10.0)
     return _client
 
+
+def _escape_md(text: str) -> str:
+    """
+    Escape Telegram Markdown v1 special characters in user-controlled strings.
+    Prevents recommendation text or call IDs with underscores/asterisks from
+    breaking the Telegram message format (Fix M6).
+    """
+    for char in ["_", "*", "`", "["]:
+        text = text.replace(char, f"\\{char}")
+    return text
+
+
 async def _send_telegram(call_id: str, risk_event: dict) -> None:
     """Send a formatted alert message to Telegram."""
     risk_score = risk_event.get("risk_score", 0)
@@ -89,40 +101,43 @@ async def _send_telegram(call_id: str, risk_event: dict) -> None:
         if isinstance(score, (int, float)):
             bar_filled = int(score * 10)
             bar = "\u2588" * bar_filled + "\u2591" * (10 - bar_filled)
-            signal_lines.append(f"  {name}: {bar} {score:.2f}")
+            signal_lines.append(f"  {_escape_md(name)}: {bar} {score:.2f}")
 
     signals_text = "\n".join(signal_lines) if signal_lines else "  No signals available"
 
-    escaped_call_id = call_id.replace("_", "\\_")
     message = (
         f"\U0001f6a8 *VoiceTrace \u2014 Clone Detection Alert*\n\n"
-        f"\U0001f4de *Call ID:* `{escaped_call_id}`\n"
+        f"\U0001f4de *Call ID:* `{_escape_md(call_id)}`\n"
         f"\u23f0 *Time:* {timestamp}\n"
         f"\U0001f3af *Risk Score:* {risk_score}/100\n"
         f"\U0001f534 *Band:* {band.upper()}\n\n"
         f"\U0001f4ca *Sub-Signal Breakdown:*\n"
         f"{signals_text}\n\n"
-        f"\U0001f4a1 *Recommendation:*\n{recommendation}\n\n"
+        f"\U0001f4a1 *Recommendation:*\n{_escape_md(recommendation)}\n\n"
         f"\U0001f3db _SIH 2026 \u2014 PSID 260104 \u2014 VoiceTrace_"
     )
 
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": TELEGRAM_CHAT_ID,
-        "text": message,
-        "parse_mode": "Markdown",
-    }
-
     client = get_client()
-    resp = await client.post(url, json=payload)
-    if resp.status_code == 200:
-        log.info("alert_dispatcher  Telegram sent  call=%s  risk=%d",
-                call_id, risk_score)
-    else:
-        log.warning(
-            "alert_dispatcher  Telegram failed  status=%d  body=%s",
-            resp.status_code, resp.text[:200],
-        )
+
+    chat_ids = [cid.strip() for cid in TELEGRAM_CHAT_ID.split(",") if cid.strip()]
+    
+    for chat_id in chat_ids:
+        payload = {
+            "chat_id": chat_id,
+            "text": message,
+            "parse_mode": "Markdown",
+        }
+
+        resp = await client.post(url, json=payload)
+        if resp.status_code == 200:
+            log.info("alert_dispatcher  Telegram sent to %s  call=%s  risk=%d",
+                    chat_id, call_id, risk_score)
+        else:
+            log.warning(
+                "alert_dispatcher  Telegram failed for %s  status=%d  body=%s",
+                chat_id, resp.status_code, resp.text[:200],
+            )
 
 
 async def _send_webhook(call_id: str, risk_event: dict) -> None:

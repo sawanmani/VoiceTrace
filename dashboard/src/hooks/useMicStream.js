@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from 'react'
+import { getAuthToken } from '../lib/api'
 import { genCallId } from '../lib/utils'
 import { WS_BASE, MIC_SAMPLE_RATE, MIC_BUFFER_SIZE } from '../lib/constants'
 
@@ -19,16 +20,17 @@ export function useMicStream(onEvent, finalizeCall) {
     setCallId(id)
     callStartRef.current = Date.now()
 
-    // Open call WebSocket (no ?api_key= in wsUrl anymore)
-    const apiKey = import.meta.env.VITE_API_KEY ?? ''
-    const ws = new WebSocket(`${WS_BASE}/ws/call/${id}?api_key=${apiKey}`)
-    callWsRef.current = ws
+    try {
+      const token = await getAuthToken()
+      const wsUrl = `${WS_BASE}/ws/call/${id}?token=${token}`
+      const ws = new WebSocket(wsUrl)
+      callWsRef.current = ws
+      
+      ws.onopen = () => {
+        // Connected
+      }
     
-    ws.onopen = () => {
-      ws.send(JSON.stringify({ type: 'auth', api_key: apiKey }))
-    }
-    
-    ws.onmessage = (ev) => {
+      ws.onmessage = (ev) => {
       try { onEvent(JSON.parse(ev.data)) } catch (_) {}
     }
     
@@ -38,13 +40,12 @@ export function useMicStream(onEvent, finalizeCall) {
     
     ws.onclose = (ev) => {
       if (ev.code === 1008) {
-        console.error('WebSocket auth rejected (1008). Check VITE_API_KEY.')
+        console.error('WebSocket auth rejected (1008).')
         setError('Connection failed — check API key.')
         setActive(false)
       }
     }
 
-    try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       const ctx = new window.AudioContext({ sampleRate: MIC_SAMPLE_RATE })
       audioCtxRef.current = ctx
@@ -74,7 +75,7 @@ export function useMicStream(onEvent, finalizeCall) {
       setActive(true)
     } catch (err) {
       // Close the WS opened above if mic fails
-      if (ws.readyState !== WebSocket.CLOSED) ws.close()
+      if (callWsRef.current && callWsRef.current.readyState !== WebSocket.CLOSED) callWsRef.current.close()
       callWsRef.current = null
       console.error('Mic unavailable:', err.message)
       setError('Connection failed — check API key or microphone permissions.')

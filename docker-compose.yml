@@ -1,15 +1,66 @@
-version: "3"
+
 
 services:
+  db:
+    image: postgres:15-alpine
+    container_name: voicetrace_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: voicetrace
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: always
+
+  redis:
+    image: redis:7-alpine
+    container_name: voicetrace_redis
+    restart: always
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: voicetrace_backend
+    env_file: .env
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/voicetrace
+      - REDIS_URL=redis://redis:6379/0
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+    restart: always
+
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: ../Dockerfile.dashboard
+    container_name: voicetrace_dashboard
+    ports:
+      - "5173:80"
+    restart: always
+
+  asterisk:
+    build: ./asterisk-docker
+    container_name: voicetrace_asterisk
+    network_mode: host
+    environment:
+      - SIP_PROVIDER_HOST=${SIP_PROVIDER_HOST:-sip2sip.info}
+      - SIP_USERNAME=${SIP_USERNAME:-}
+      - SIP_PASSWORD=${SIP_PASSWORD:-}
+    restart: always
+
   turn:
     image: coturn/coturn:latest
     container_name: voicetrace_coturn
     network_mode: host
+    environment:
+      - TURN_SHARED_SECRET=${TURN_SHARED_SECRET:-vt_turn_5a4f3e2d1c0b9b4e6d3c2a1f0e8b7d6c}
     command:
-      # Use long-term credentials
-      - --lt-cred-mech
-      # Generate credentials: <username>:<password>
-      - --user=voicetrace:demo2026
+      - --use-auth-secret
+      - --static-auth-secret=${TURN_SHARED_SECRET:-vt_turn_5a4f3e2d1c0b9b4e6d3c2a1f0e8b7d6c}
       - --realm=voicetrace.local
       - --listening-port=3478
       - --tls-listening-port=5349
@@ -19,3 +70,6 @@ services:
       - --no-dtls
       - --verbose
     restart: always
+
+volumes:
+  pgdata:

@@ -17,13 +17,23 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+import jwt
+import hmac
+import hashlib
+import base64
+import time
+from datetime import datetime, timedelta
+
 import aiofiles
 import numpy as np
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 from starlette.middleware.base import BaseHTTPMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 from server.audio_utils import bytes_to_pcm, decode_twilio_chunk, file_bytes_to_pcm
 from server.config import CORS_ORIGINS, LOG_LEVEL, LOG_SCORES
@@ -38,6 +48,9 @@ from server.challenge import ChallengeManager, build_challenge_pool
 from server.batch_worker import batch_inference_worker
 from server.signaling import signaling_manager
 from server.history_db import get_recent_calls, save_feedback
+from server.sip_config import (
+    SIPCredentials, configure_sip, test_sip, get_sip_status,
+)
 
 # ── Logging ────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -48,9 +61,8 @@ log = logging.getLogger("voicetrace")
 
 
 # ── API-Key Middleware (Fix 4) ─────────────────────────────────────────────
-from dotenv import load_dotenv
-load_dotenv()
 _API_KEY = os.getenv("VOICETRACE_API_KEY", "")
+_JWT_SECRET = os.getenv("VOICETRACE_JWT_SECRET", _API_KEY)  # Fallback to API key if not set
 
 
 def _is_localhost(host: str | None) -> bool:
@@ -68,7 +80,7 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
         if request.method == "OPTIONS":
             return await call_next(request)
 
-        if path in {"/", "/health", "/docs", "/openapi.json", "/redoc"}:
+        if path in {"/", "/health", "/docs", "/openapi.json", "/redoc", "/api/auth/token"}:
             return await call_next(request)
 
         if path.startswith("/ws/"):
@@ -88,6 +100,9 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
         if request.url.path.startswith("/twilio/"):
             return await call_next(request)
 
+        if request.url.path.startswith("/api/sip/"):
+            return await call_next(request)
+
         if not _API_KEY:
             return JSONResponse({"detail": "Server API key not configured (fail closed)"}, status_code=500)
 
@@ -99,9 +114,8 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
 
 
 async def _verify_ws_key_payload(websocket: WebSocket) -> bool:
-    """Check API key from initial WebSocket auth payload or query param."""
+    """Check JWT from initial WebSocket auth payload or query param."""
     # Use the actual network peer address, NOT the client-controlled Host header.
-    # An attacker could send Host: localhost from the public internet to bypass auth.
     client_host = websocket.client.host if websocket.client else None
     if not _API_KEY and _is_localhost(client_host):
         return True
@@ -110,17 +124,25 @@ async def _verify_ws_key_payload(websocket: WebSocket) -> bool:
         await websocket.close(code=1011, reason="Server API key not configured")
         return False
 
-    query_key = websocket.query_params.get("api_key")
-    if query_key == _API_KEY:
-        return True
+    token = websocket.query_params.get("token")
+    if not token:
+        try:
+            message = await asyncio.wait_for(websocket.receive_text(), timeout=5.0)
+            data = json.loads(message)
+            if isinstance(data, dict) and data.get("type") == "auth":
+                token = data.get("token")
+        except Exception:
+            pass
 
-    try:
-        message = await asyncio.wait_for(websocket.receive_text(), timeout=5.0)
-        data = json.loads(message)
-        if isinstance(data, dict) and data.get("type") == "auth" and data.get("api_key") == _API_KEY:
+    if token:
+        try:
+            jwt.decode(token, _JWT_SECRET, algorithms=["HS256"])
             return True
-    except Exception:
-        pass
+        except jwt.ExpiredSignatureError:
+            await websocket.close(code=1008, reason="Token expired")
+            return False
+        except jwt.InvalidTokenError:
+            pass
 
     await websocket.close(code=1008, reason="Unauthorized")
     return False
@@ -146,7 +168,48 @@ async def lifespan(app: FastAPI):
     if hasattr(broker, "start"):
         await broker.start()
 
-    _batch_task = asyncio.create_task(batch_inference_worker())
+    async def _run_batch_worker_with_restart():
+        """
+        Restart batch_inference_worker on unexpected crash with exponential backoff.
+        Fix H2: without this, a crash silently stops all inference with no alert.
+        """
+        backoff = 1.0
+        max_backoff = 60.0
+        while True:
+            try:
+                log.info("Batch worker starting (backoff=%.0fs)", backoff)
+                await batch_inference_worker()
+                # If worker returns normally, just restart immediately
+            except asyncio.CancelledError:
+                log.info("Batch worker cancelled — shutting down cleanly")
+                return
+            except Exception as exc:
+                log.critical(
+                    "BATCH WORKER CRASHED: %s — restarting in %.0fs",
+                    exc, backoff, exc_info=True,
+                )
+                # Fire alert so operators know inference has stopped
+                try:
+                    from server.alert_dispatcher import dispatch_alert
+                    await dispatch_alert(
+                        "SYSTEM",
+                        {
+                            "risk_score": 100,
+                            "band": "high",
+                            "signals": {},
+                            "recommendation": (
+                                f"SYSTEM ALERT: Batch inference worker crashed. "
+                                f"No detection running. Error: {exc}. "
+                                f"Restarting in {backoff:.0f}s."
+                            ),
+                        },
+                    )
+                except Exception:
+                    pass  # Don't let alert failure prevent restart
+                await asyncio.sleep(backoff)
+                backoff = min(backoff * 2, max_backoff)
+
+    _batch_task = asyncio.create_task(_run_batch_worker_with_restart())
     from server.audiosocket_server import start_audiosocket_server
     _audio_task = asyncio.create_task(start_audiosocket_server())
     log.info("Startup complete.")
@@ -175,6 +238,16 @@ async def lifespan(app: FastAPI):
     if hasattr(_broker, "stop"):
         await _broker.stop()
 
+    # Close alert dispatcher HTTP client (Fix M7) — prevents resource leak warnings
+    try:
+        from server.alert_dispatcher import get_client
+        _alert_client = get_client()
+        if _alert_client:
+            await _alert_client.aclose()
+            log.info("Alert dispatcher HTTP client closed")
+    except Exception as _e:
+        log.warning("Failed to close alert HTTP client: %s", _e)
+
     log.info("Shutdown complete.")
 
 
@@ -195,8 +268,33 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ── Rate Limiting (Fix H1) ────────────────────────────────────────────────
+# Per-IP sliding-window limits for REST endpoints.
+# WebSocket per-IP limits are enforced in ConnectionManager.connect_call().
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 risk_engine = RiskEngine()
 challenge_mgr = ChallengeManager()
+
+@app.post("/api/auth/token")
+@limiter.limit("20/minute")
+async def generate_token(request: Request):
+    """Generate a short-lived JWT token for WebSocket authentication."""
+    key = request.headers.get("X-Api-Key")
+    if not _API_KEY:
+        return JSONResponse({"detail": "Server API key not configured"}, status_code=500)
+    if key != _API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+    
+    payload = {
+        "sub": "websocket",
+        "exp": datetime.utcnow() + timedelta(minutes=60),
+        "iat": datetime.utcnow(),
+    }
+    token = jwt.encode(payload, _JWT_SECRET, algorithm="HS256")
+    return {"token": token}
 
 
 # ── Startup warmup (removed — now handled by lifespan above) ─────────────
@@ -234,7 +332,8 @@ async def health(extended: bool = False):
 
 # ── POST /analyze ──────────────────────────────────────────────────────────
 @app.post("/analyze", response_model=AnalyzeResponse)
-async def analyze(file: UploadFile = File(...)):
+@limiter.limit("20/minute")
+async def analyze(request: Request, file: UploadFile = File(...)):
     data = await file.read()
     if not data:
         raise HTTPException(status_code=400, detail="Empty file")
@@ -263,7 +362,8 @@ async def analyze(file: UploadFile = File(...)):
 
 # ── POST /feedback ─────────────────────────────────────────────────────────
 @app.post("/feedback")
-async def feedback(req: FeedbackRequest):
+@limiter.limit("60/minute")
+async def feedback(request: Request, req: FeedbackRequest):
     """Persist operator feedback label to SQLite for active-learning loop."""
     await save_feedback(req.call_id, req.label)
     log.info("Feedback persisted  call=%s  label=%s", req.call_id, req.label)
@@ -286,25 +386,67 @@ async def get_config():
 
 # ── GET /api/webrtc/credentials ────────────────────────────────────────────
 @app.get("/api/webrtc/credentials")
-async def webrtc_credentials():
+async def webrtc_credentials(request: Request):
     """
     Returns ICE servers including dynamically generated TURN credentials if configured.
-    Currently falls back to public STUN and Metered.ca public TURN relay.
     """
-    return {
-        "iceServers": [
-            {"urls": "stun:stun.l.google.com:19302"},
-            {"urls": "stun:stun.relay.metered.ca:80"},
-            # To add an authenticated TURN server (e.g. Twilio NTS or coturn),
-            # generate ephemeral credentials here and append:
-            # {"urls": "turn:global.turn.twilio.com:3478?transport=udp", "username": "...", "credential": "..."}
-        ]
-    }
+    turn_secret = os.getenv("TURN_SHARED_SECRET", "")
+    host = request.headers.get("host", "localhost").split(":")[0]
+    
+    servers = [
+        {"urls": "stun:stun.l.google.com:19302"},
+        {"urls": "stun:stun.relay.metered.ca:80"},
+    ]
+    
+    if turn_secret:
+        # Generate time-limited credentials (valid for 24h)
+        timestamp = int(time.time()) + 86400
+        username = f"{timestamp}:voicetrace"
+        
+        mac = hmac.new(
+            turn_secret.encode(),
+            username.encode(),
+            hashlib.sha1
+        )
+        credential = base64.b64encode(mac.digest()).decode()
+        
+        servers.append({
+            "urls": f"turn:{host}:3478?transport=udp",
+            "username": username,
+            "credential": credential
+        })
+        
+    return {"iceServers": servers}
+
+
+# ── Free SIP Phone Configuration ──────────────────────────────────────────
+# These endpoints replace the Twilio dependency with free SIP providers
+# (Zadarma, IPComms, etc.) for real PSTN phone call integration.
+
+@app.post("/api/sip/configure")
+@limiter.limit("10/minute")
+async def sip_configure(request: Request, creds: SIPCredentials):
+    """Save SIP trunk credentials for the free SIP provider."""
+    return await configure_sip(creds)
+
+
+@app.post("/api/sip/test")
+@limiter.limit("10/minute")
+async def sip_test(request: Request):
+    """Test SIP connectivity to the configured provider."""
+    return await test_sip()
+
+
+@app.get("/api/sip/status")
+async def sip_status():
+    """Check current SIP trunk registration status."""
+    return await get_sip_status()
 
 
 # ── GET /history ────────────────────────────────────────────────────────────
 @app.get("/history")
-async def history(limit: int = 50):
+@limiter.limit("30/minute")
+async def history(request: Request, limit: int = 50):
     """Return the most recent completed calls from SQLite for dashboard hydration."""
     calls = await get_recent_calls(limit=limit)
     return calls
@@ -312,7 +454,8 @@ async def history(limit: int = 50):
 
 # ── GET /incidents ─────────────────────────────────────────────────────────
 @app.get("/incidents")
-async def get_incidents():
+@limiter.limit("30/minute")
+async def get_incidents(request: Request):
     """Return all incident reports. Uses aiofiles for non-blocking async reads."""
     from pathlib import Path
     from server.incident_report import _INCIDENT_DIR
@@ -332,6 +475,46 @@ async def get_incidents():
     # Sort descending by timestamp
     incidents.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
     return incidents
+
+
+# ── PATCH /incidents/{incident_id}/resolve ─────────────────────────────────
+class IncidentResolveRequest(BaseModel):
+    resolved_by: str
+    notes: str = ""
+
+@app.patch("/incidents/{incident_id}/resolve")
+async def resolve_incident(incident_id: str, req: IncidentResolveRequest):
+    """
+    Mark an incident report as RESOLVED.
+
+    Updates the JSON file in-place — sets status to RESOLVED and records
+    who resolved it and when. Enables closing the audit loop (Fix H3-A).
+    """
+    from server.incident_report import _INCIDENT_DIR
+    from datetime import datetime
+
+    path = _INCIDENT_DIR / f"{incident_id}.json"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail=f"Incident '{incident_id}' not found")
+
+    try:
+        async with aiofiles.open(path, "r", encoding="utf-8") as fp:
+            report = json.loads(await fp.read())
+
+        report["status"] = "RESOLVED"
+        report["resolved_at"] = datetime.now().isoformat()
+        report["resolved_by"] = req.resolved_by
+        report["resolution_notes"] = req.notes
+
+        async with aiofiles.open(path, "w", encoding="utf-8") as fp:
+            await fp.write(json.dumps(report, indent=2))
+
+        log.info("Incident resolved: %s by %s", incident_id, req.resolved_by)
+        return {"status": "resolved", "incident_id": incident_id, "resolved_by": req.resolved_by}
+
+    except Exception as e:
+        log.error("Failed to resolve incident %s: %s", incident_id, e)
+        raise HTTPException(status_code=500, detail="Failed to update incident file")
 
 
 # ── WS /ws/call/{call_id} ─────────────────────────────────────────────────
@@ -474,13 +657,6 @@ async def room_exists(room_id: str):
 
 
 # ── WS /ws/signal/{room_id} ────────────────────────────────────────────────
-# NOTE(S1 — consciously deferred): This endpoint intentionally skips API key
-# auth. It carries only opaque SDP/ICE candidates — no audio, no PII, no
-# call content. The HTTP-level API key middleware does not apply to WS upgrade
-# requests. /ws/call and /ws/twilio enforce auth via payload-level
-# {"type":"auth","api_key":"..."} on the first frame instead.
-# TODO(production): Add JWT/token in the WS upgrade query param or cookie
-# before deploying beyond a controlled LAN environment.
 @app.websocket("/ws/signal/{room_id}")
 async def ws_signal(websocket: WebSocket, room_id: str):
     """
@@ -493,11 +669,10 @@ async def ws_signal(websocket: WebSocket, room_id: str):
       4. "callee" sends {"type":"answer","sdp":"..."} → server relays to "caller".
       5. Both exchange {"type":"ice-candidate","candidate":{...}} — relayed symmetrically.
       6. Either side sends {"type":"hangup"} to end the session.
-
-    No API key required: this channel carries only opaque WebRTC handshake
-    payloads (SDP + ICE) — no audio, no inference data, no PII.
     """
     await websocket.accept()
+    if not await _verify_ws_key_payload(websocket):
+        return
 
     joined = await signaling_manager.join(room_id, websocket)
     if not joined:

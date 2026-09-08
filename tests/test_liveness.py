@@ -1,13 +1,36 @@
+import sys
+import types
 import numpy as np
+import pytest
+
+import pytest
+
+
+@pytest.fixture(autouse=True, scope="module")
+def patch_server_config():
+    """
+    Inject a fake server.config module so test_liveness.py does not need
+    config.yaml present on disk (Fix L4). Mirrors the pattern in test_batch_worker.py.
+    """
+    fake = types.ModuleType("server.config")
+    fake.SILENCE_THRESHOLD = 0.002
+    fake.CLIPPING_THRESHOLD = 0.98
+    fake.CLIPPING_FRACTION_LIMIT = 0.01
+    fake.NOISE_FLOOR_VARIANCE_MIN = 1e-6
+    fake.ZCR_MIN = 0.01
+    fake.ZCR_MAX = 0.45
+    sys.modules["server.config"] = fake
+    yield
+    sys.modules.pop("server.config", None)
+
 
 from detector.streaming import LivenessChecker
-from server.config import (
-    CLIPPING_FRACTION_LIMIT,
-    CLIPPING_THRESHOLD,
-    SILENCE_THRESHOLD,
-    ZCR_MAX,
-    ZCR_MIN,
-)
+
+# Constants defined inline (mirrors config.yaml values) so tests are
+# self-documenting without importing server.config directly.
+SILENCE_THRESHOLD = 0.002
+CLIPPING_THRESHOLD = 0.98
+CLIPPING_FRACTION_LIMIT = 0.01
 
 
 def test_silence_is_detected():

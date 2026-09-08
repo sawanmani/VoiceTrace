@@ -77,7 +77,18 @@ WEBRTC_STUN_SERVER: str = _cfg.get("webrtc", {}).get(
 AUDIOSOCKET_HOST: str = _cfg.get("asterisk", {}).get("audiosocket_host", "127.0.0.1")
 AUDIOSOCKET_PORT: int = _cfg.get("asterisk", {}).get("audiosocket_port", 1579)
 
-# ── Alerts ───────────────────────────────────────────────────────────────
-TELEGRAM_BOT_TOKEN: str = _cfg.get("alerts", {}).get("telegram_bot_token", "")
-TELEGRAM_CHAT_ID: str = str(_cfg.get("alerts", {}).get("telegram_chat_id", ""))
-ALERT_WEBHOOK_URL: str = _cfg.get("alerts", {}).get("webhook_url", "")
+# ── Alerts — env vars take precedence over config.yaml (Fix L5) ──────────
+# Set TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, ALERT_WEBHOOK_URL in .env or
+# the deployment environment. Never put real tokens in config.yaml.
+TELEGRAM_BOT_TOKEN: str = (
+    os.environ.get("TELEGRAM_BOT_TOKEN")
+    or _cfg.get("alerts", {}).get("telegram_bot_token", "")
+)
+TELEGRAM_CHAT_ID: str = str(
+    os.environ.get("TELEGRAM_CHAT_ID")
+    or _cfg.get("alerts", {}).get("telegram_chat_id", "")
+)
+ALERT_WEBHOOK_URL: str = (
+    os.environ.get("ALERT_WEBHOOK_URL")
+    or _cfg.get("alerts", {}).get("webhook_url", "")
+)

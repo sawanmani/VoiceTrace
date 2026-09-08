@@ -12,6 +12,7 @@ uvicorn[standard]>=0.29
 websockets>=12.0
 python-multipart>=0.0.9
 pydantic>=2.6
+slowapi>=0.1.9      # per-endpoint rate limiting (Fix H1)
 
 # Telephony
 twilio>=8.0        # Twilio Media Streams + RequestValidator (Fix 3 signature validation)
@@ -28,6 +29,10 @@ redis[asyncio]>=5.0
 # Persistence / async I/O
 aiosqlite>=0.20.0
 aiofiles>=23.2.1
+asyncpg>=0.29.0
+
+# Security / Authentication
+PyJWT>=2.8.0
 
 # Testing
 pytest>=8.0

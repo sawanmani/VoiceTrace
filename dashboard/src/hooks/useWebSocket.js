@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { getAuthToken } from '../lib/api'
 
 /**
  * useWebSocket — manages a WebSocket connection to the VoiceTrace backend.
@@ -23,20 +24,18 @@ export function useWebSocket(url, onEvent) {
   const retryDelay = useRef(1000)
   const mountedRef = useRef(true)
 
-  const connect = useCallback(() => {
+  const connect = useCallback(async () => {
     // null URL = intentionally disconnected (e.g. mic call is active)
     if (!mountedRef.current || !url) return
 
     try {
-      const apiKey = import.meta.env.VITE_API_KEY ?? ''
-      const ws = new WebSocket(url)
+      const token = await getAuthToken()
+      const wsUrl = url.includes('?') ? `${url}&token=${token}` : `${url}?token=${token}`
+      const ws = new WebSocket(wsUrl)
       wsRef.current = ws
 
       ws.onopen = () => {
         if (!mountedRef.current) return
-        if (apiKey) {
-          ws.send(JSON.stringify({ type: 'auth', api_key: apiKey }))
-        }
         setConnected(true)
         setReconnecting(false)
         retryDelay.current = 1000

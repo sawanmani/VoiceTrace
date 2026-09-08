@@ -11,10 +11,11 @@ import Settings from './pages/Settings.jsx'
 import Reports from './pages/Reports.jsx'
 import Call from './pages/Call.jsx'
 import TwilioConfig from './pages/TwilioConfig.jsx'
+import PhoneSetup from './pages/PhoneSetup.jsx'
 import './index.css'
-import { syncConfig } from './lib/constants.js'
+import { syncConfig, syncWebRTC } from './lib/constants.js'
 
-syncConfig().then(() => {
+Promise.all([syncConfig(), syncWebRTC()]).then(() => {
   ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ErrorBoundary>
@@ -28,6 +29,7 @@ syncConfig().then(() => {
           <Route path="settings" element={<Settings />} />
           <Route path="reports" element={<Reports />} />
           <Route path="twilio" element={<TwilioConfig />} />
+          <Route path="phone-setup" element={<PhoneSetup />} />
         </Route>
         {/* /call is outside the MainLayout shell — it's a full-screen call UI */}
         <Route path="/call" element={<Call />} />

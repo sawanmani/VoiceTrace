@@ -21,6 +21,7 @@
  *                                                  over the same WS connection
  */
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { getAuthToken } from '../lib/api';
 import { WS_BASE, MIC_SAMPLE_RATE, MIC_BUFFER_SIZE, ICE_SERVERS } from '../lib/constants';
 
 const DEFAULT_ICE_CONFIG = {
@@ -70,16 +71,14 @@ export function useWebRTC({ roomId, onRiskEvent }) {
   // ── Detection side-channel setup ──────────────────────────────────────
 
   const _startDetection = useCallback(async (stream, callId) => {
-    const apiKey = import.meta.env.VITE_API_KEY ?? '';
-    // Use payload auth (not query-string) to keep tokens out of URLs/logs,
-    // matching useWebSocket.js and useMicStream.js patterns.
-    const ws = new WebSocket(`${WS_BASE}/ws/call/${callId}`);
-    detWsRef.current = ws;
+    try {
+      const token = await getAuthToken();
+      const ws = new WebSocket(`${WS_BASE}/ws/call/${callId}?token=${token}`);
+      detWsRef.current = ws;
 
-    ws.onopen = () => {
-      ws.send(JSON.stringify({ type: 'auth', api_key: apiKey }));
-      _log('detection WS open, callId=%s', callId);
-    };
+      ws.onopen = () => {
+        _log('detection WS open, callId=%s', callId);
+      };
 
     ws.onmessage = (ev) => {
       try {
@@ -90,12 +89,12 @@ export function useWebRTC({ roomId, onRiskEvent }) {
 
     ws.onclose = (ev) => {
       if (ev.code === 1008) {
-        console.error('[WebRTC] detection WS auth rejected (1008). Check VITE_API_KEY.');
+        console.error('[WebRTC] detection WS auth rejected (1008).');
       }
     };
 
     // Capture audio as float32 PCM and send as binary frames
-    const ctx = new AudioContext({ sampleRate: MIC_SAMPLE_RATE });
+    const ctx = new window.AudioContext({ sampleRate: MIC_SAMPLE_RATE });
     audioCtxRef.current = ctx;
 
     const source = ctx.createMediaStreamSource(stream);
@@ -118,6 +117,9 @@ export function useWebRTC({ roomId, onRiskEvent }) {
     proc.connect(mute);
     mute.connect(ctx.destination);
     _log('detection side-channel started');
+    } catch (err) {
+      console.error('Detection setup failed:', err);
+    }
   }, [onRiskEvent]);
 
   // ── RTCPeerConnection setup ───────────────────────────────────────────
@@ -251,7 +253,8 @@ export function useWebRTC({ roomId, onRiskEvent }) {
       await _startDetection(stream, `${roomId}-local`);
 
       // 4. Open signaling WebSocket
-      const sigWs = new WebSocket(`${WS_BASE}/ws/signal/${roomId}`);
+      const token = await getAuthToken();
+      const sigWs = new WebSocket(`${WS_BASE}/ws/signal/${roomId}?token=${token}`);
       sigWsRef.current = sigWs;
 
       sigWs.onopen = () => {
