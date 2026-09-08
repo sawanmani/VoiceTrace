@@ -77,23 +77,22 @@ export const MIC_SAMPLE_RATE    = 16000
 export const MIC_BUFFER_SIZE    = 4096
 export const ALERT_MEDIUM_PROB  = 0.3   // probability of showing medium-risk alert
 
-// ── WebRTC ─────────────────────────────────────────────────────────────────
-// Free public Google STUN server for NAT traversal — no API key needed.
-// For demos over non-local networks, a TURN server may be required.
-// ICE servers for NAT traversal
-// STUN alone fails behind symmetric NAT or on same-machine testing.
-// Free TURN relay via Metered.ca ensures connectivity in all scenarios.
-const host = new URL(API_BASE).hostname;
-
-export const ICE_SERVERS = [
+export let ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun.relay.metered.ca:80' },
-  { 
-    urls: `turn:${host}:3478?transport=udp`,
-    username: 'voicetrace',
-    credential: 'demo2026'
-  }
 ];
+
+export async function syncWebRTC() {
+  try {
+    const res = await fetch(`${API_BASE}/api/webrtc/credentials`);
+    if (res.ok) {
+      const data = await res.json();
+      ICE_SERVERS = data.iceServers;
+      console.log("[Config] Synced WebRTC ICE servers:", ICE_SERVERS.length);
+    }
+  } catch (err) {
+    console.warn("[Config] Failed to sync WebRTC credentials, using defaults.", err);
+  }
+}
 
 // ── Overlay ────────────────────────────────────────────────────────────────
 // How long (ms) the yellow overlay stays visible after score drops below medium.

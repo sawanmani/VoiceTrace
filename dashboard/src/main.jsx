@@ -13,9 +13,9 @@ import Call from './pages/Call.jsx'
 import TwilioConfig from './pages/TwilioConfig.jsx'
 import PhoneSetup from './pages/PhoneSetup.jsx'
 import './index.css'
-import { syncConfig } from './lib/constants.js'
+import { syncConfig, syncWebRTC } from './lib/constants.js'
 
-syncConfig().then(() => {
+Promise.all([syncConfig(), syncWebRTC()]).then(() => {
   ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ErrorBoundary>

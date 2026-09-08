@@ -118,22 +118,26 @@ async def _send_telegram(call_id: str, risk_event: dict) -> None:
     )
 
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": TELEGRAM_CHAT_ID,
-        "text": message,
-        "parse_mode": "Markdown",
-    }
-
     client = get_client()
-    resp = await client.post(url, json=payload)
-    if resp.status_code == 200:
-        log.info("alert_dispatcher  Telegram sent  call=%s  risk=%d",
-                call_id, risk_score)
-    else:
-        log.warning(
-            "alert_dispatcher  Telegram failed  status=%d  body=%s",
-            resp.status_code, resp.text[:200],
-        )
+
+    chat_ids = [cid.strip() for cid in TELEGRAM_CHAT_ID.split(",") if cid.strip()]
+    
+    for chat_id in chat_ids:
+        payload = {
+            "chat_id": chat_id,
+            "text": message,
+            "parse_mode": "Markdown",
+        }
+
+        resp = await client.post(url, json=payload)
+        if resp.status_code == 200:
+            log.info("alert_dispatcher  Telegram sent to %s  call=%s  risk=%d",
+                    chat_id, call_id, risk_score)
+        else:
+            log.warning(
+                "alert_dispatcher  Telegram failed for %s  status=%d  body=%s",
+                chat_id, resp.status_code, resp.text[:200],
+            )
 
 
 async def _send_webhook(call_id: str, risk_event: dict) -> None:

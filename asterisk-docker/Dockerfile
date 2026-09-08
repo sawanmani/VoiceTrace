@@ -14,8 +14,14 @@ FROM debian:bookworm-slim
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    asterisk \
+    asterisk openssl \
     && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /etc/asterisk/keys && \
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout /etc/asterisk/keys/asterisk.key \
+    -out /etc/asterisk/keys/asterisk.crt \
+    -subj "/C=US/ST=State/L=City/O=VoiceTrace/OU=VoiceTrace/CN=asterisk"
 
 # Copy config files (with env var placeholders for SIP trunk)
 COPY pjsip.conf /etc/asterisk/pjsip.conf.template
@@ -26,8 +32,9 @@ COPY modules.conf /etc/asterisk/modules.conf
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# SIP (5060 UDP) + RTP range (10000-10100 UDP)
+# SIP (5060 UDP, 5061 TCP for TLS) + RTP range (10000-10100 UDP)
 EXPOSE 5060/udp
+EXPOSE 5061/tcp
 EXPOSE 10000-10100/udp
 
 # Environment variables for free SIP trunk (set in docker-compose.yml)

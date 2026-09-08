@@ -17,6 +17,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+import jwt
+import hmac
+import hashlib
+import base64
+import time
+from datetime import datetime, timedelta
+
 import aiofiles
 import numpy as np
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect
@@ -55,6 +62,7 @@ log = logging.getLogger("voicetrace")
 
 # ── API-Key Middleware (Fix 4) ─────────────────────────────────────────────
 _API_KEY = os.getenv("VOICETRACE_API_KEY", "")
+_JWT_SECRET = os.getenv("VOICETRACE_JWT_SECRET", _API_KEY)  # Fallback to API key if not set
 
 
 def _is_localhost(host: str | None) -> bool:
@@ -72,7 +80,7 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
         if request.method == "OPTIONS":
             return await call_next(request)
 
-        if path in {"/", "/health", "/docs", "/openapi.json", "/redoc"}:
+        if path in {"/", "/health", "/docs", "/openapi.json", "/redoc", "/api/auth/token"}:
             return await call_next(request)
 
         if path.startswith("/ws/"):
@@ -106,9 +114,8 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
 
 
 async def _verify_ws_key_payload(websocket: WebSocket) -> bool:
-    """Check API key from initial WebSocket auth payload or query param."""
+    """Check JWT from initial WebSocket auth payload or query param."""
     # Use the actual network peer address, NOT the client-controlled Host header.
-    # An attacker could send Host: localhost from the public internet to bypass auth.
     client_host = websocket.client.host if websocket.client else None
     if not _API_KEY and _is_localhost(client_host):
         return True
@@ -117,17 +124,25 @@ async def _verify_ws_key_payload(websocket: WebSocket) -> bool:
         await websocket.close(code=1011, reason="Server API key not configured")
         return False
 
-    query_key = websocket.query_params.get("api_key")
-    if query_key == _API_KEY:
-        return True
+    token = websocket.query_params.get("token")
+    if not token:
+        try:
+            message = await asyncio.wait_for(websocket.receive_text(), timeout=5.0)
+            data = json.loads(message)
+            if isinstance(data, dict) and data.get("type") == "auth":
+                token = data.get("token")
+        except Exception:
+            pass
 
-    try:
-        message = await asyncio.wait_for(websocket.receive_text(), timeout=5.0)
-        data = json.loads(message)
-        if isinstance(data, dict) and data.get("type") == "auth" and data.get("api_key") == _API_KEY:
+    if token:
+        try:
+            jwt.decode(token, _JWT_SECRET, algorithms=["HS256"])
             return True
-    except Exception:
-        pass
+        except jwt.ExpiredSignatureError:
+            await websocket.close(code=1008, reason="Token expired")
+            return False
+        except jwt.InvalidTokenError:
+            pass
 
     await websocket.close(code=1008, reason="Unauthorized")
     return False
@@ -263,6 +278,24 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 risk_engine = RiskEngine()
 challenge_mgr = ChallengeManager()
 
+@app.post("/api/auth/token")
+@limiter.limit("20/minute")
+async def generate_token(request: Request):
+    """Generate a short-lived JWT token for WebSocket authentication."""
+    key = request.headers.get("X-Api-Key")
+    if not _API_KEY:
+        return JSONResponse({"detail": "Server API key not configured"}, status_code=500)
+    if key != _API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+    
+    payload = {
+        "sub": "websocket",
+        "exp": datetime.utcnow() + timedelta(minutes=60),
+        "iat": datetime.utcnow(),
+    }
+    token = jwt.encode(payload, _JWT_SECRET, algorithm="HS256")
+    return {"token": token}
+
 
 # ── Startup warmup (removed — now handled by lifespan above) ─────────────
 
@@ -353,20 +386,37 @@ async def get_config():
 
 # ── GET /api/webrtc/credentials ────────────────────────────────────────────
 @app.get("/api/webrtc/credentials")
-async def webrtc_credentials():
+async def webrtc_credentials(request: Request):
     """
     Returns ICE servers including dynamically generated TURN credentials if configured.
-    Currently falls back to public STUN and Metered.ca public TURN relay.
     """
-    return {
-        "iceServers": [
-            {"urls": "stun:stun.l.google.com:19302"},
-            {"urls": "stun:stun.relay.metered.ca:80"},
-            # To add an authenticated TURN server (e.g. Twilio NTS or coturn),
-            # generate ephemeral credentials here and append:
-            # {"urls": "turn:global.turn.twilio.com:3478?transport=udp", "username": "...", "credential": "..."}
-        ]
-    }
+    turn_secret = os.getenv("TURN_SHARED_SECRET", "")
+    host = request.headers.get("host", "localhost").split(":")[0]
+    
+    servers = [
+        {"urls": "stun:stun.l.google.com:19302"},
+        {"urls": "stun:stun.relay.metered.ca:80"},
+    ]
+    
+    if turn_secret:
+        # Generate time-limited credentials (valid for 24h)
+        timestamp = int(time.time()) + 86400
+        username = f"{timestamp}:voicetrace"
+        
+        mac = hmac.new(
+            turn_secret.encode(),
+            username.encode(),
+            hashlib.sha1
+        )
+        credential = base64.b64encode(mac.digest()).decode()
+        
+        servers.append({
+            "urls": f"turn:{host}:3478?transport=udp",
+            "username": username,
+            "credential": credential
+        })
+        
+    return {"iceServers": servers}
 
 
 # ── Free SIP Phone Configuration ──────────────────────────────────────────
@@ -603,13 +653,6 @@ async def room_exists(room_id: str):
 
 
 # ── WS /ws/signal/{room_id} ────────────────────────────────────────────────
-# NOTE(S1 — consciously deferred): This endpoint intentionally skips API key
-# auth. It carries only opaque SDP/ICE candidates — no audio, no PII, no
-# call content. The HTTP-level API key middleware does not apply to WS upgrade
-# requests. /ws/call and /ws/twilio enforce auth via payload-level
-# {"type":"auth","api_key":"..."} on the first frame instead.
-# TODO(production): Add JWT/token in the WS upgrade query param or cookie
-# before deploying beyond a controlled LAN environment.
 @app.websocket("/ws/signal/{room_id}")
 async def ws_signal(websocket: WebSocket, room_id: str):
     """
@@ -622,11 +665,10 @@ async def ws_signal(websocket: WebSocket, room_id: str):
       4. "callee" sends {"type":"answer","sdp":"..."} → server relays to "caller".
       5. Both exchange {"type":"ice-candidate","candidate":{...}} — relayed symmetrically.
       6. Either side sends {"type":"hangup"} to end the session.
-
-    No API key required: this channel carries only opaque WebRTC handshake
-    payloads (SDP + ICE) — no audio, no inference data, no PII.
     """
     await websocket.accept()
+    if not await _verify_ws_key_payload(websocket):
+        return
 
     joined = await signaling_manager.join(room_id, websocket)
     if not joined:
