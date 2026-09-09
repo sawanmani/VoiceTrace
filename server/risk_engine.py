@@ -152,6 +152,11 @@ class RiskEngine:
             "transaction_context_score": round(context.transaction_risk, 4),
             "voiceprint_mismatch_score": round(vp_mismatch, 4),
         }
+        
+        # Merge transformer multi-class probabilities if present
+        if detection.class_probs:
+            for k, v in detection.class_probs.items():
+                signals[f"class_prob_{k}"] = round(v, 4)
 
         return RiskEvent(
             risk_score=risk_score,

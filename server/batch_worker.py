@@ -45,23 +45,33 @@ async def batch_inference_worker():
     log.info("Batch worker starting...")
     
     # Needs to get the model.
-    from server._model_cache import get_aasist
-    model = get_aasist()
+    from server._model_cache import get_aasist, get_transformer
+    transformer_model = get_transformer()
+    aasist_model = get_aasist()
     
+    # Wait for at least one model to load
     retry_count = 0
     max_retries = 30
-    while model is None:
+    while transformer_model is None and aasist_model is None:
         if retry_count >= max_retries:
-            log.error(f"Failed to load AASIST model after {max_retries} retries. Shutting down.")
+            log.error(f"Failed to load detection models after {max_retries} retries. Shutting down.")
             raise RuntimeError("Model initialization failed")
         await asyncio.sleep(1.0)
-        model = get_aasist()
+        transformer_model = get_transformer()
+        aasist_model = get_aasist()
         retry_count += 1
         if retry_count % 5 == 0:
             log.warning(f"Model load in progress... ({retry_count}s elapsed)")
         
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    log.info(f"Batch worker loaded model on {device}")
+    if transformer_model:
+        log.info(f"Batch worker loaded VoiceTransformer on {device}")
+        active_model = transformer_model
+        is_transformer = True
+    else:
+        log.info(f"Batch worker loaded AASIST-L on {device}")
+        active_model = aasist_model
+        is_transformer = False
     
     while True:
         await asyncio.sleep(0.1) # Poll every 100ms
@@ -101,11 +111,22 @@ async def batch_inference_worker():
                 return mod(inputs)
                 
         loop = asyncio.get_running_loop()
-        last_hidden, logits = await loop.run_in_executor(None, _forward_pass, model, x)
-            
-        probs = torch.softmax(logits, dim=1)
-        raw_spoof_probs = probs[:, 1].cpu().numpy()
         
+        if is_transformer:
+            logits = await loop.run_in_executor(None, _forward_pass, active_model, x)
+            probs = torch.softmax(logits, dim=1)
+            # Transformer classes: 0: Genuine, 1: ASVspoof, 2: WaveFake, 3: InTheWild
+            # Spoof probability is the sum of classes 1, 2, and 3
+            raw_spoof_probs = probs[:, 1:].sum(dim=1).cpu().numpy()
+            
+            # Transformer does not produce the same intermediate features
+            # Pass a dummy tensor so `_extract_signals` doesn't crash, or handle it properly.
+            last_hidden = torch.zeros(x.size(0), 160)
+        else:
+            last_hidden, logits = await loop.run_in_executor(None, _forward_pass, active_model, x)
+            probs = torch.softmax(logits, dim=1)
+            raw_spoof_probs = probs[:, 1].cpu().numpy()
+            
         latency_ms = (time.perf_counter() - t0) * 1000
         
         # 4. Scatter results and broadcast
@@ -123,11 +144,22 @@ async def batch_inference_worker():
             # To be safe for batch > 1, we pass a tensor of shape (1, 160)
             signals = _extract_signals(last_hidden[i:i+1])
             
+            if is_transformer:
+                c_probs = {
+                    "Genuine": float(probs[i, 0].cpu().numpy()),
+                    "ASVspoof": float(probs[i, 1].cpu().numpy()),
+                    "WaveFake": float(probs[i, 2].cpu().numpy()),
+                    "InTheWild": float(probs[i, 3].cpu().numpy()),
+                }
+            else:
+                c_probs = None
+                
             detection_result = detector.update_ema_and_format(
                 raw_spoof_prob=raw_prob,
                 liveness_score=liveness,
                 signals=signals,
-                latency_ms=latency_ms
+                latency_ms=latency_ms,
+                class_probs=c_probs
             )
             
             risk_event = risk_engine.score(detection_result, call_id, state.context)

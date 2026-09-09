@@ -74,6 +74,7 @@ class DetectionResult:
     latency_ms: float
     window_index: int
     smoothed_spoof_prob: float     # EMA-smoothed version
+    class_probs: Optional[Dict[str, float]] = None # Transformer multiclass probabilities
 
 
 # ── Liveness Checker ────────────────────────────────────────────────────────
@@ -185,14 +186,20 @@ def _get_model(checkpoint: Path, device: str):
     Falls back to loading directly (useful in tests / push_full without server).
     """
     try:
-        from server._model_cache import get_aasist  # noqa: PLC0415
+        from server._model_cache import get_aasist, get_transformer  # noqa: PLC0415
+        
+        # Try transformer first
+        transformer = get_transformer()
+        if transformer is not None:
+            return transformer, True # is_transformer
+            
         model = get_aasist()
         if model is not None:
-            return model
+            return model, False # is_transformer
     except ImportError:
         pass
     # Fallback: load directly (test / offline use)
-    return load_model(checkpoint, device)
+    return load_model(checkpoint, device), False
 
 # ── Streaming Detector ──────────────────────────────────────────────────────
 
@@ -283,7 +290,8 @@ class StreamingDetector:
         raw_spoof_prob: float, 
         liveness_score: float, 
         signals: Dict[str, float], 
-        latency_ms: float
+        latency_ms: float,
+        class_probs: Optional[Dict[str, float]] = None
     ) -> DetectionResult:
         """Called by BatchWorker to finalize the score and format the result."""
         if self._ema_prob is None:
@@ -304,6 +312,7 @@ class StreamingDetector:
             signals=signals,
             latency_ms=latency_ms,
             window_index=idx,
+            class_probs=class_probs,
         )
 
     def push_full(self, audio: np.ndarray) -> List[DetectionResult]:
@@ -313,7 +322,7 @@ class StreamingDetector:
         """
         self.reset()
         if self._model is None:
-            self._model = _get_model(self._checkpoint, self._device)
+            self._model, self._is_transformer = _get_model(self._checkpoint, self._device)
             
         self.push(audio)
         results = []
@@ -352,14 +361,27 @@ class StreamingDetector:
         liveness_result = self._liveness.check(window)
 
         x = torch.FloatTensor(audio_fixed).unsqueeze(0).to(self._device)
+        class_probs = None
         with torch.no_grad():
-            last_hidden, logits = self._model(x)
-
-        probs = torch.softmax(logits, dim=1)
-        raw_spoof_prob = float(probs[0, 1].item())
-        signals = _extract_signals(last_hidden)
+            if hasattr(self, '_is_transformer') and self._is_transformer:
+                logits = self._model(x)
+                probs = torch.softmax(logits, dim=1)
+                raw_spoof_prob = float(probs[0, 1:].sum().item())
+                signals = {} # Transformer has no signal intermediate logic yet
+                class_probs = {
+                    "Genuine": float(probs[0, 0].item()),
+                    "ASVspoof": float(probs[0, 1].item()),
+                    "WaveFake": float(probs[0, 2].item()),
+                    "InTheWild": float(probs[0, 3].item()),
+                }
+            else:
+                last_hidden, logits = self._model(x)
+                probs = torch.softmax(logits, dim=1)
+                raw_spoof_prob = float(probs[0, 1].item())
+                signals = _extract_signals(last_hidden)
+                
         latency_ms = (time.perf_counter() - t0) * 1000
 
         return self.update_ema_and_format(
-            raw_spoof_prob, liveness_result.liveness_score, signals, latency_ms
+            raw_spoof_prob, liveness_result.liveness_score, signals, latency_ms, class_probs=class_probs
         )
