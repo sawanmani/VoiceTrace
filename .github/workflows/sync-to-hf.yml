@@ -37,7 +37,12 @@ jobs:
           git config user.name "GitHub Action"
           git config user.email "action@github.com"
           
+          # 5.5 Set up Git LFS for the model file (HF requires this for binaries)
+          git lfs install
+          git lfs track "*.pth"
+          
           # 6. Add all remaining files and commit
+          git add .gitattributes
           git add .
           git add -f models/weights/AASIST-L.pth
           git commit -m "Deploy latest version from GitHub"
