@@ -30,7 +30,7 @@ COPY modules.conf /etc/asterisk/modules.conf
 
 # Copy entrypoint that substitutes SIP credentials at startup
 COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+RUN sed -i 's/\r$//' /entrypoint.sh && chmod +x /entrypoint.sh
 
 # SIP (5060 UDP, 5061 TCP for TLS) + RTP range (10000-10100 UDP)
 EXPOSE 5060/udp
