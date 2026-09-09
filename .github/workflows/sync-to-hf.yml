@@ -18,5 +18,22 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          git config lfs.allowincompletepush true
+          # 1. Delete git history to avoid pushing large old files
+          rm -rf .git
+          
+          # 2. Delete the offending files (like cloudflared.exe and caches)
+          rm -f cloudflared.exe
+          rm -rf models/spk_cache models/asr_cache
+          
+          # 3. Create a fresh git repository just for Hugging Face
+          git init
+          git checkout -b main
+          git config user.name "GitHub Action"
+          git config user.email "action@github.com"
+          
+          # 4. Add all remaining files and commit
+          git add .
+          git commit -m "Deploy latest version from GitHub"
+          
+          # 5. Force push this single clean commit to Hugging Face
           git push --force https://Adarshmani:$HF_TOKEN@huggingface.co/spaces/Adarshmani/VoiceTrace-Backend main
