@@ -17,4 +17,6 @@ jobs:
       - name: Push to Hugging Face Space
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: git push --force https://Adarshmani:$HF_TOKEN@huggingface.co/spaces/Adarshmani/VoiceTrace-Backend main
+        run: |
+          git config lfs.allowincompletepush true
+          git push --force https://Adarshmani:$HF_TOKEN@huggingface.co/spaces/Adarshmani/VoiceTrace-Backend main
