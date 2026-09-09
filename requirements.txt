@@ -9,6 +9,7 @@ soundfile>=0.12
 # Server
 fastapi>=0.110
 gradio>=4.36.0
+huggingface-hub<0.25.0
 spaces>=0.28.0
 uvicorn[standard]>=0.29
 websockets>=12.0
