@@ -20,7 +20,7 @@ async def generate_token(request: Request):
     """Generate a short-lived JWT token for WebSocket authentication."""
     key = request.headers.get("X-Api-Key")
     if not _API_KEY:
-        return JSONResponse({"detail": "Server API key not configured"}, status_code=500)
+        return {"token": "dummy_token_local_mode"}
     if key != _API_KEY:
         raise HTTPException(status_code=401, detail="Invalid API key")
     
