@@ -12,7 +12,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-          lfs: true
+          lfs: false
       
       - name: Push to Hugging Face Space
         env:
@@ -21,19 +21,25 @@ jobs:
           # 1. Delete git history to avoid pushing large old files
           rm -rf .git
           
-          # 2. Delete the offending files (like cloudflared.exe and caches)
+          # 2. Delete the offending files and directories
           rm -f cloudflared.exe
           rm -rf models/spk_cache models/asr_cache
           
-          # 3. Create a fresh git repository just for Hugging Face
+          # 3. Remove large media files that exceed limits
+          find . -type f \( -name "*.jpg" -o -name "*.png" -o -name "*.mp4" -o -name "*.exe" \) -delete
+          
+          # 4. Remove git-related files from previous repo
+          rm -rf .git .gitattributes
+          
+          # 5. Create a fresh git repository just for Hugging Face
           git init
           git checkout -b main
           git config user.name "GitHub Action"
           git config user.email "action@github.com"
           
-          # 4. Add all remaining files and commit
+          # 6. Add all remaining files and commit
           git add .
           git commit -m "Deploy latest version from GitHub"
           
-          # 5. Force push this single clean commit to Hugging Face
+          # 7. Force push this single clean commit to Hugging Face
           git push --force https://Adarshmani:$HF_TOKEN@huggingface.co/spaces/Adarshmani/VoiceTrace-Backend main
