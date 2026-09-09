@@ -1,3 +1,14 @@
+---
+title: VoiceTrace Backend
+emoji: 🎙️
+colorFrom: blue
+colorTo: green
+sdk: gradio
+sdk_version: 4.40.0
+app_file: app.py
+pinned: false
+---
+
 # VoiceTrace
 
 VoiceTrace is a real-time, enterprise-grade AI voice cloning detection system. It monitors VoIP calls (via WebRTC, Free SIP/Asterisk, or Twilio) and statically analyzes pre-recorded audio files to detect deepfakes using the AASIST-L neural network.
