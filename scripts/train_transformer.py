@@ -20,7 +20,7 @@ from detector.transformer_model import VoiceTransformer
 BATCH_SIZE = 16
 EPOCHS = 50
 LEARNING_RATE = 1e-4
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+DEVICE = torch.device("cpu")
 TARGET_SR = 16000
 SAMPLE_LENGTH = 64600  # ~4.04s
 

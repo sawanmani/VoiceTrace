@@ -215,7 +215,7 @@ class StreamingDetector:
         device: Optional[str] = None,
     ):
         self._checkpoint = checkpoint or DEFAULT_CHECKPOINT
-        self._device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        self._device = device or ("cpu")
         self._model = None  # Lazy loaded if push_full is called
 
         self._liveness = LivenessChecker()

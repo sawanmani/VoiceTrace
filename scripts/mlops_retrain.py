@@ -26,7 +26,7 @@ class TripletVoiceDataset(torch.utils.data.Dataset):
 
 def run_retraining():
     print("[MLOps] Loading AASIST-L model for Triplet Finetuning...")
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cpu")
     model = load_model(DEFAULT_CHECKPOINT, device.type)
     model.to(device)
     model.train()

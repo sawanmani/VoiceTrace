@@ -194,7 +194,7 @@ The official AASIST repo provides pretrained weights inside the repo itself.
     parser.add_argument(
         "--device",
         type=str,
-        default="cuda" if torch.cuda.is_available() else "cpu",
+        default="cpu",
         help="Device to run inference on (default: auto-detect).",
     )
     args = parser.parse_args()
