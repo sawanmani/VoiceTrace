@@ -15,6 +15,15 @@ from server.history_db import log_event
 
 log = logging.getLogger("voicetrace")
 
+
+def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
+    """Cosine similarity between two 1-D embeddings. Returns 0–1."""
+    dot = np.dot(a, b)
+    norm = np.linalg.norm(a) * np.linalg.norm(b)
+    if norm < 1e-9:
+        return 0.0
+    return float(np.clip(dot / norm, 0.0, 1.0))
+
 # Privacy invariant: raw audio must NEVER be persisted to disk.
 # DPDP Act 2023 §4(1)(b) — collect only what is necessary.
 # This assertion fires at worker startup if config is misconfigured.
@@ -122,8 +131,39 @@ async def batch_inference_worker():
             )
             
             risk_event = risk_engine.score(detection_result, call_id, state.context)
-            
-            
+
+            # ── Voiceprint matching (Fix M3) ─────────────────────────────
+            # Extract speaker embedding with ECAPA-TDNN and compare against
+            # the first-window baseline to detect mid-call speaker changes.
+            try:
+                from server._model_cache import get_spk_model
+                spk_model = get_spk_model()
+                if spk_model is not None:
+                    # ECAPA-TDNN expects (batch, samples) at 16kHz
+                    spk_input = torch.FloatTensor(ready_batch[i]).unsqueeze(0)
+                    with torch.no_grad():
+                        embedding = spk_model.encode_batch(spk_input)
+                    emb_np = embedding.squeeze().cpu().numpy()
+
+                    if state.baseline_embedding is None:
+                        # First window: set baseline ("this is who started the call")
+                        state.baseline_embedding = emb_np
+                        state.context.caller_identity_match_score = 1.0  # perfect match
+                    else:
+                        sim = _cosine_similarity(state.baseline_embedding, emb_np)
+                        state.context.caller_identity_match_score = sim
+                        if LOG_SCORES and sim < 0.7:
+                            log.warning(
+                                "voiceprint  call=%s  window=%d  similarity=%.3f  "
+                                "SPEAKER CHANGE DETECTED",
+                                call_id, risk_event.window_index, sim,
+                            )
+            except Exception as vp_err:
+                log.debug("Voiceprint extraction skipped: %s", vp_err)
+
+            # Re-score with updated voiceprint context
+            risk_event = risk_engine.score(detection_result, call_id, state.context)
+
             state.peak_risk = max(state.peak_risk, risk_event.risk_score)
             state.windows_processed += 1
             

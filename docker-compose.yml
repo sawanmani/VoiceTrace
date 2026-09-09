@@ -1,17 +1,6 @@
 
 
 services:
-  db:
-    image: postgres:15-alpine
-    container_name: voicetrace_db
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: voicetrace
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    restart: always
-
   redis:
     image: redis:7-alpine
     container_name: voicetrace_redis
@@ -24,12 +13,11 @@ services:
     container_name: voicetrace_backend
     env_file: .env
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/voicetrace
+      # Database uses local SQLite via aiosqlite. Future: migrate to PostgreSQL.
       - REDIS_URL=redis://redis:6379/0
     ports:
       - "8000:8000"
     depends_on:
-      - db
       - redis
     restart: always
 
@@ -45,7 +33,9 @@ services:
   asterisk:
     build: ./asterisk-docker
     container_name: voicetrace_asterisk
-    network_mode: host
+    ports:
+      - "5060:5060/udp"
+      - "10000-10100:10000-10100/udp"
     environment:
       - SIP_PROVIDER_HOST=${SIP_PROVIDER_HOST:-sip2sip.info}
       - SIP_USERNAME=${SIP_USERNAME:-}
@@ -71,5 +61,3 @@ services:
       - --verbose
     restart: always
 
-volumes:
-  pgdata:

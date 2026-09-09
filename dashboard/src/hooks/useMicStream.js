@@ -29,22 +29,22 @@ export function useMicStream(onEvent, finalizeCall) {
       ws.onopen = () => {
         // Connected
       }
-    
+
       ws.onmessage = (ev) => {
-      try { onEvent(JSON.parse(ev.data)) } catch (_) {}
-    }
-    
-    ws.onerror = (err) => {
-      console.error("WebSocket transport error:", err)
-    }
-    
-    ws.onclose = (ev) => {
-      if (ev.code === 1008) {
-        console.error('WebSocket auth rejected (1008).')
-        setError('Connection failed — check API key.')
-        setActive(false)
+        try { onEvent(JSON.parse(ev.data)) } catch (_) {}
       }
-    }
+
+      ws.onerror = (err) => {
+        console.error("WebSocket transport error:", err)
+      }
+
+      ws.onclose = (ev) => {
+        if (ev.code === 1008) {
+          console.error('WebSocket auth rejected (1008).')
+          setError('Connection failed — check API key.')
+          setActive(false)
+        }
+      }
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       const ctx = new window.AudioContext({ sampleRate: MIC_SAMPLE_RATE })

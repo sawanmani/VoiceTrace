@@ -56,8 +56,10 @@ RECOMMENDATIONS: Dict[str, str] = _cfg["recommendations"]
 # ── Server ─────────────────────────────────────────────────────────────────
 SERVER_HOST: str = _cfg["server"]["host"]
 SERVER_PORT: int = _cfg["server"]["port"]
-MAX_CALLS: int = _cfg["server"].get("max_calls", 50)
 CORS_ORIGINS: list = _cfg["server"]["cors_origins"]
+WS_IDLE_TIMEOUT: float = _cfg.get("server", {}).get("ws_idle_timeout", 60.0)
+MAX_CHALLENGE_BUFFER_SIZE: int = _cfg.get("server", {}).get("max_challenge_buffer_size", 5 * 16000)
+MAX_CALLS: int = _cfg.get("server", {}).get("max_calls", 100)
 
 # ── Logging ────────────────────────────────────────────────────────────────
 LOG_LEVEL: str = _cfg["logging"]["level"]

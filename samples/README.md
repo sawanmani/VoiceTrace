@@ -7,14 +7,17 @@ any of these files to disk during processing. Audio chunks are processed in RAM 
 
 ---
 
-## Sample Files
-
-Place the following files in this directory before the demo:
+## Available Sample Files
 
 | Filename | Description | Expected outcome |
 |---|---|---|
-| `genuine_sample.wav` | Real human voice recording (16 kHz, mono, WAV) | Risk stays **green** (< 35) |
-| `cloned_sample.wav` | AI-synthesized / cloned voice (16 kHz, mono, WAV) | Risk escalates to **red** (≥ 65) |
+| `genuine_indian.wav` | Real human voice recording (genuine speech) | Risk stays **green** (< 25) |
+| `spoof_hindi.wav` | Hindi speech sample for spoof testing | Varies based on source |
+| `spoof_tamil.wav` | Tamil speech sample for spoof testing | Varies based on source |
+
+> **⚠️ Missing: Digital deepfake WAV files.** To demonstrate HIGH-risk detection, you need
+> a digitally synthesized voice file (not re-recorded through speakers). Generate one using
+> ElevenLabs, Bark, or download from ASVspoof 2019 LA (see instructions below).
 
 ---
 
