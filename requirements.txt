@@ -8,6 +8,8 @@ soundfile>=0.12
 
 # Server
 fastapi>=0.110
+gradio>=4.0.0
+spaces>=0.28.0
 uvicorn[standard]>=0.29
 websockets>=12.0
 python-multipart>=0.0.9
