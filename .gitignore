@@ -30,17 +30,14 @@ models/asr_cache/
 models/spk_cache/
 models/weights/
 models/challenge_pool/
-models/*.db
-models/*.db-shm
-models/*.db-wal
 samples/*.wav
 !samples/demo_*.wav
 
 # SQLite databases
 *.sqlite3
 *.db
-*.db-shm
-*.db-wal
+server/*.db
+history.db
 
 # Generated reports
 incidents/*.json
@@ -56,13 +53,21 @@ dashboard/dist/
 dashboard/.npm/
 npm-debug.log*
 
-# Binaries & tunnel tools
+# Binaries
+cloudflared.exe
 *.exe
-cloudflared*
-ngrok.log
-ngrok.yml
 
 # OS generated files
 .DS_Store
 Thumbs.db
 
+# --- Added: closes the credential/binary exposure found in this audit ---
+# Tunnel tool logs and binaries — these can contain live authtokens
+*.log
+ngrok.log
+ngrok.yml
+*.exe
+cloudflared*
+
+models/history.db*
+detector/__pycache__/

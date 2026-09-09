@@ -1,8 +1,6 @@
 from typing import Dict, Optional
 import threading
 
-import numpy as np
-
 from detector.streaming import StreamingDetector
 from server.risk_engine import CallContext
 
@@ -19,10 +17,6 @@ class CallState:
         # Written to the incident report at call disconnect so
         # evidence_windows_count is accurate (Fix M2).
         self.high_risk_events: list = []
-        # Voiceprint: first-window speaker embedding used as baseline.
-        # Subsequent windows are compared via cosine similarity to detect
-        # mid-call speaker changes (Fix M3 — wire ECAPA-TDNN to risk).
-        self.baseline_embedding: Optional[np.ndarray] = None
 
 class CallManager:
     """

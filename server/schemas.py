@@ -27,7 +27,7 @@ class AnalyzeResponse(BaseModel):
     windows: List[RiskEventSchema]
 
 class ContextUpdateMessage(BaseModel):
-    type: Literal["context", "trigger_challenge", "ping"]
+    type: Literal["context", "trigger_challenge"]
     caller_familiarity: Optional[float] = None
     transaction_risk: Optional[float] = None
 

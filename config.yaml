@@ -21,11 +21,10 @@ risk_thresholds:
   medium: 35      # 35-64 -> medium
   high: 65        # 65-100 -> high
   weights:
-    spoof_prob: 0.55        # AASIST-L raw output (primary signal)
+    spoof_prob: 0.60        # AASIST-L raw output (primary signal)
     liveness: 0.20          # liveness heuristics
     caller_context: 0.10   # caller familiarity / prior call history
     transaction_context: 0.10  # is a sensitive action being requested?
-    voiceprint_mismatch: 0.05  # ECAPA-TDNN cosine distance from baseline speaker
 
 recommendations:
   low: "Voice appears genuine. No action required."

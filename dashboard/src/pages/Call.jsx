@@ -30,9 +30,264 @@ function genRoomId() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
 }
 
-import VideoTile from '../components/VideoTile';
-import CallControls from '../components/CallControls';
-import CallRiskDisplay from '../components/CallRiskDisplay';
+function bandColor(score) {
+  if (score >= THRESHOLD_HIGH) return '#ef4444';
+  if (score >= THRESHOLD_MEDIUM) return '#f59e0b';
+  return '#10b981';
+}
+
+function bandLabel(score) {
+  if (score >= THRESHOLD_HIGH) return 'HIGH';
+  if (score >= THRESHOLD_MEDIUM) return 'MEDIUM';
+  return 'LOW';
+}
+
+// ── VideoTile ─────────────────────────────────────────────────────────────
+
+function VideoTile({ stream, label, muted = false, riskScore = null, isCameraOff = false }) {
+  const videoRef = useRef(null);
+  useEffect(() => {
+    if (videoRef.current && stream) {
+      videoRef.current.srcObject = stream;
+    }
+  }, [stream]);
+
+  return (
+    <div style={{
+      position: 'relative',
+      flex: 1,
+      minWidth: 0,
+      borderRadius: 16,
+      overflow: 'hidden',
+      background: '#0f0f0f',
+      border: riskScore != null && riskScore >= THRESHOLD_HIGH
+        ? '2px solid rgba(239,68,68,0.7)'
+        : '1px solid rgba(255,255,255,0.08)',
+      boxShadow: riskScore != null && riskScore >= THRESHOLD_HIGH
+        ? '0 0 0 3px rgba(239,68,68,0.25), 0 8px 32px rgba(0,0,0,0.6)'
+        : '0 8px 32px rgba(0,0,0,0.4)',
+      transition: 'border-color 0.4s, box-shadow 0.4s',
+      aspectRatio: '16/9',
+    }}>
+      {stream && !isCameraOff ? (
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted={muted}
+          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+        />
+      ) : (
+        <div style={{
+          width: '100%', height: '100%',
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center',
+          gap: 12, color: 'rgba(255,255,255,0.3)',
+        }}>
+          <div style={{
+            width: 64, height: 64, borderRadius: '50%',
+            background: 'rgba(255,255,255,0.05)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Users size={28} color="rgba(255,255,255,0.3)" />
+          </div>
+          <span style={{ fontSize: 17, letterSpacing: '0.05em' }}>
+            {stream ? 'CAMERA OFF' : 'CONNECTING...'}
+          </span>
+        </div>
+      )}
+
+      {/* Label */}
+      <div style={{
+        position: 'absolute', bottom: 10, left: 12,
+        display: 'flex', alignItems: 'center', gap: 6,
+      }}>
+        <span style={{
+          fontSize: 15, fontWeight: 700, letterSpacing: '0.1em',
+          color: 'rgba(255,255,255,0.9)',
+          background: 'rgba(0,0,0,0.85)',
+          padding: '3px 8px', borderRadius: 6,
+          textTransform: 'uppercase',
+        }}>
+          {label}
+        </span>
+        {riskScore != null && (
+          <span style={{
+            fontSize: 15, fontWeight: 800, letterSpacing: '0.08em',
+            color: '#fff',
+            background: `${bandColor(riskScore)}f2`,
+            padding: '3px 8px', borderRadius: 6,
+            transition: 'background 0.4s',
+          }}>
+            RISK {riskScore}
+          </span>
+        )}
+      </div>
+
+      {/* Risk accent line */}
+      {riskScore != null && (
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0,
+          height: 3,
+          background: bandColor(riskScore),
+          opacity: riskScore >= THRESHOLD_MEDIUM ? 1 : 0,
+          transition: 'background 0.4s, opacity 0.4s',
+        }} />
+      )}
+    </div>
+  );
+}
+
+// ── CallControls ──────────────────────────────────────────────────────────
+
+function CallControls({ isMuted, isCameraOff, onMute, onCamera, onHangUp }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16,
+      padding: '16px 24px',
+    }}>
+      <CtrlBtn
+        onClick={onMute}
+        icon={isMuted ? MicOff : Mic}
+        active={isMuted}
+        activeColor="#ef4444"
+        title={isMuted ? 'Unmute' : 'Mute'}
+      />
+      <CtrlBtn
+        onClick={onCamera}
+        icon={isCameraOff ? VideoOff : Video}
+        active={isCameraOff}
+        activeColor="#ef4444"
+        title={isCameraOff ? 'Enable Camera' : 'Disable Camera'}
+      />
+      <button
+        onClick={onHangUp}
+        title="Hang Up"
+        style={{
+          width: 60, height: 60, borderRadius: '50%',
+          background: 'linear-gradient(135deg, #dc2626, #991b1b)',
+          border: 'none', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 0 0 3px rgba(220,38,38,0.3), 0 4px 16px rgba(0,0,0,0.4)',
+          transition: 'transform 0.15s, box-shadow 0.15s',
+        }}
+        onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.08)'}
+        onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+      >
+        <PhoneOff size={22} color="#fff" />
+      </button>
+    </div>
+  );
+}
+
+function CtrlBtn({ onClick, icon: Icon, active, activeColor, title }) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      style={{
+        width: 48, height: 48, borderRadius: '50%',
+        background: active ? `${activeColor}22` : 'rgba(255,255,255,0.08)',
+        border: `1px solid ${active ? activeColor : 'rgba(255,255,255,0.12)'}`,
+        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        transition: 'all 0.2s',
+        color: active ? activeColor : 'rgba(255,255,255,0.7)',
+      }}
+    >
+      <Icon size={18} />
+    </button>
+  );
+}
+
+// ── Risk Panel ────────────────────────────────────────────────────────────
+
+function RiskSidebar({ riskEvent, windowCount }) {
+  if (!riskEvent) {
+    return (
+      <div style={{ padding: 16, color: 'rgba(255,255,255,0.3)', fontSize: 16, textAlign: 'center' }}>
+        <Activity size={20} style={{ marginBottom: 8, opacity: 0.3 }} />
+        <div>Waiting for analysis...</div>
+        <div style={{ marginTop: 4, fontSize: 15 }}>Voice detection starts after ~1 second of audio</div>
+      </div>
+    );
+  }
+
+  const { risk_score, band, signals, recommendation, latency_ms } = riskEvent;
+
+  const topSignals = Object.entries(signals || {})
+    .filter(([k]) => !k.includes('context'))
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 5);
+
+  return (
+    <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* Score */}
+      <div style={{ textAlign: 'center' }}>
+        <div style={{
+          fontSize: 44, fontWeight: 900, letterSpacing: '-0.02em',
+          color: bandColor(risk_score), lineHeight: 1,
+          textShadow: `0 0 30px ${bandColor(risk_score)}55`,
+        }}>
+          {risk_score}
+        </div>
+        <div style={{
+          fontSize: 14, fontWeight: 800, letterSpacing: '0.15em',
+          color: bandColor(risk_score), textTransform: 'uppercase', marginTop: 4,
+        }}>
+          {bandLabel(risk_score)} RISK
+        </div>
+        <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>
+          Window #{windowCount} · {Math.round(latency_ms)}ms
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      <div style={{ height: 4, borderRadius: 4, background: 'rgba(255,255,255,0.08)' }}>
+        <div style={{
+          height: '100%', borderRadius: 4,
+          width: `${risk_score}%`,
+          background: `linear-gradient(90deg, #10b981, ${bandColor(risk_score)})`,
+          transition: 'width 0.5s, background 0.4s',
+        }} />
+      </div>
+
+      {/* Sub-scores */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: '0.12em', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: 2 }}>
+          Signal Breakdown
+        </div>
+        {topSignals.map(([key, val]) => (
+          <div key={key}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+              <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)' }}>
+                {key.replace(/_score$/, '').replace(/_/g, ' ')}
+              </span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>
+                {Math.round(val * 100)}%
+              </span>
+            </div>
+            <div style={{ height: 3, borderRadius: 3, background: 'rgba(255,255,255,0.07)' }}>
+              <div style={{
+                height: '100%', borderRadius: 3, background: bandColor(risk_score),
+                width: `${val * 100}%`, transition: 'width 0.5s',
+              }} />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Recommendation */}
+      <div style={{
+        background: 'rgba(255,255,255,0.04)',
+        border: '1px solid rgba(255,255,255,0.07)',
+        borderRadius: 8, padding: '8px 10px',
+        fontSize: 15, color: 'rgba(255,255,255,0.55)', lineHeight: 1.5,
+      }}>
+        {recommendation}
+      </div>
+    </div>
+  );
+}
 
 // ── Lobby (room create / join) ────────────────────────────────────────────
 
@@ -455,7 +710,7 @@ export default function Call() {
             <Activity size={11} />
             Detection Panel
           </div>
-          <CallRiskDisplay riskEvent={riskEvent} windowCount={windowCount} />
+          <RiskSidebar riskEvent={riskEvent} windowCount={windowCount} />
         </div>
       </div>
 

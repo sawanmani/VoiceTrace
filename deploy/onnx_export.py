@@ -36,27 +36,6 @@ def export_onnx(checkpoint_path: Path, output_path: Path):
         }
     )
     print("Export complete. The model is now ready for edge deployment.")
-    
-    # Apply INT8 Quantization
-    try:
-        from onnxruntime.quantization import quantize_dynamic, QuantType
-        quantized_model_path = output_path.with_name(output_path.stem + "-quantized.onnx")
-        print(f"Applying INT8 quantization to {quantized_model_path}...")
-        quantize_dynamic(
-            str(output_path),
-            str(quantized_model_path),
-            weight_type=QuantType.QUInt8
-        )
-        import os
-        q_size_mb = os.path.getsize(quantized_model_path) / (1024 * 1024)
-        print(f"Quantized edge model size: {q_size_mb:.2f} MB")
-        
-        size_mb = os.path.getsize(output_path) / (1024 * 1024)
-        print(f"Original exported model size: {size_mb:.2f} MB")
-    except ImportError:
-        print("onnxruntime not installed, skipping quantization.")
-    except Exception as e:
-        print(f"Quantization failed: {e}")
 
 def main():
     parser = argparse.ArgumentParser()
