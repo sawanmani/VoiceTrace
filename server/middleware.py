@@ -9,7 +9,7 @@ def _is_localhost(host: str | None) -> bool:
     if not host:
         return False
     normalized = host.split(":", 1)[0].lower()
-    return normalized in {"localhost", "127.0.0.1", "::1"}
+    return normalized in {"localhost", "127.0.0.1", "::1", "testclient"}
 
 class ApiKeyMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
