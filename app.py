@@ -1,21 +1,12 @@
-import gradio as gr
 import spaces
-from server.main import app as fastapi_app
+from server.main import app
 
-# Dummy GPU function to satisfy Hugging Face ZeroGPU requirements
+# DO NOT create a Gradio interface here! 
+# If Hugging Face sees a Gradio interface, it ignores our FastAPI app.
+# By only exposing `app`, Hugging Face will serve our FastAPI backend directly using Uvicorn!
+
 @spaces.GPU
-def gpu_health_check():
-    return "ZeroGPU is successfully initialized and VoiceTrace Backend is running!"
-
-# Create a small Gradio interface
-demo = gr.Interface(
-    fn=gpu_health_check,
-    inputs=None,
-    outputs="text",
-    title="VoiceTrace Backend Status",
-    description="This is the Hugging Face ZeroGPU proxy for the VoiceTrace API."
-)
-
-# Mount the dummy Gradio app onto our FastAPI backend at the root path.
-# Hugging Face Spaces will automatically find this `app` variable and run it!
-app = gr.mount_gradio_app(fastapi_app, demo, path="/")
+def _dummy_gpu_function_for_hf_check():
+    # Hugging Face ZeroGPU requires at least one function to have the @spaces.GPU decorator.
+    # We just put it here so the Space passes the hardware check.
+    pass
