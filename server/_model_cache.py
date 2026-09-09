@@ -22,6 +22,9 @@ _registry: dict = {}
 def get_aasist() -> Optional[object]:
     return _registry.get("aasist")
 
+def get_transformer() -> Optional[object]:
+    return _registry.get("transformer")
+
 def get_asr_model() -> Optional[object]:
     return _registry.get("asr")
 
@@ -45,6 +48,22 @@ def warmup_all() -> None:
         log.info("Warmed up AASIST-L ✓")
     except Exception as e:
         log.error("Failed to warm up AASIST-L: %s", e)
+
+    # 1.5 VoiceTransformer (New Architecture)
+    try:
+        from detector.transformer_model import VoiceTransformer
+        import os
+        transformer_weights = "models/weights/voicetransformer_epoch50.pth"
+        if os.path.exists(transformer_weights):
+            t_model = VoiceTransformer(num_classes=4).to("cuda" if torch.cuda.is_available() else "cpu")
+            t_model.load_state_dict(torch.load(transformer_weights, map_location="cuda" if torch.cuda.is_available() else "cpu", weights_only=True))
+            t_model.eval()
+            _registry["transformer"] = t_model
+            log.info("Warmed up VoiceTransformer ✓")
+        else:
+            log.info("VoiceTransformer weights not found, using AASIST-L as fallback.")
+    except Exception as e:
+        log.error("Failed to warm up VoiceTransformer: %s", e)
 
     # 2. SpeechBrain ASR (CRDNN)
     try:

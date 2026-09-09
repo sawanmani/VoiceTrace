@@ -54,9 +54,6 @@ def decode_asterisk_chunk(raw_bytes: bytes) -> np.ndarray:
     # Step 3: Resample 8kHz → 16kHz (AASIST-L requires 16kHz)
     audio = _resample(audio, _ASTERISK_SR, TARGET_SR)
 
-    # Step 4: LUFS normalization (energy normalization, language-agnostic)
-    audio = _lufs_normalize(audio)
-
     # Step 5: NaN/Inf guard — prevents CUDA crashes downstream
     # Same guard used in decode_twilio_chunk() at audio_utils.py:224
     np.nan_to_num(audio, copy=False, nan=0.0, posinf=0.0, neginf=0.0)
