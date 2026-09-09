@@ -223,7 +223,6 @@ def decode_twilio_chunk(payload_b64: str) -> np.ndarray:
     pcm16 = _ULAW_TABLE[np.frombuffer(raw, dtype=np.uint8)]
     audio = pcm16.astype(np.float32) / 32768.0
     audio = _resample(audio, _TWILIO_SR, TARGET_SR)
-    audio = _lufs_normalize(audio)
     np.nan_to_num(audio, copy=False, nan=0.0, posinf=0.0, neginf=0.0)
     return audio
 
