@@ -39,6 +39,7 @@ jobs:
           
           # 6. Add all remaining files and commit
           git add .
+          git add -f models/weights/AASIST-L.pth
           git commit -m "Deploy latest version from GitHub"
           
           # 7. Force push this single clean commit to Hugging Face
