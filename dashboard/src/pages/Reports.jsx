@@ -34,9 +34,6 @@ export default function Reports() {
     duration_sec: call.duration_sec,
   }));
 
-  if (reports.length === 0) {
-    reports.push({ id: 'REP-SYS-01', date: 'Just now', type: 'System Boot Audit', status: 'Generated' });
-  }
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-base)', color: 'var(--text-primary)', fontFamily: 'var(--font-sans)' }}>
@@ -66,7 +63,17 @@ export default function Reports() {
                 </tr>
               </thead>
               <tbody>
-                {reports.map((rep, i) => (
+                {reports.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" style={{ padding: '60px 24px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                      <div className="flex flex-col items-center justify-center gap-3">
+                        <FileText size={48} className="opacity-20" />
+                        <div className="text-lg font-bold">No Audit Logs Found</div>
+                        <div className="text-sm opacity-60">Complete a call or a static file scan to generate records here.</div>
+                      </div>
+                    </td>
+                  </tr>
+                ) : reports.map((rep, i) => (
                   <tr key={rep.id + i} style={{ borderBottom: i === reports.length - 1 ? 'none' : '1px solid var(--border)' }}>
                     <td style={{ padding: '16px 24px', fontSize: 18, fontWeight: 600 }}>{rep.id}</td>
                     <td style={{ padding: '16px 24px', fontSize: 18 }}>{rep.date}</td>

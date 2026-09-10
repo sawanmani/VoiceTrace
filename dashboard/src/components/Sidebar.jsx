@@ -24,7 +24,7 @@ export default function Sidebar() {
     <div className="group fixed bottom-0 left-0 w-full h-[60px] lg:w-[72px] lg:hover:w-[240px] lg:h-full lg:top-0 bg-white/70 backdrop-blur-2xl border-t border-theme-dark/5 lg:border-t-0 lg:border-r shadow-[4px_0_24px_rgba(92,52,37,0.03)] flex flex-row lg:flex-col items-center lg:items-start justify-around lg:justify-start lg:py-6 z-50 transition-[width] duration-300 ease-out overflow-hidden">
       
       {/* Logo Section */}
-      <Link to="/" className="hidden lg:flex items-center no-underline mb-8 min-w-[72px] w-full px-4" style={{ textDecoration: 'none' }}>
+      <Link to="/" className="hidden lg:flex items-center no-underline mb-4 min-w-[72px] w-full px-4" style={{ textDecoration: 'none' }}>
         <div className="flex items-center justify-center min-w-[40px]">
           <div className="w-11 h-11 rounded-full overflow-hidden shadow-lg shadow-[#5C3425]/20 group-hover:scale-105 transition-transform border-2 border-[#5C3425]">
             <img src="/custom-logo.jpg" alt="VoiceTrace Custom Logo" className="w-full h-full object-cover" />
@@ -34,6 +34,15 @@ export default function Sidebar() {
           VoiceTrace
         </span>
       </Link>
+
+      <button onClick={() => document.getElementById('file-input')?.click()} className="hidden lg:flex items-center gap-2 mx-3 mb-6 px-4 py-2.5 bg-[#5C3425] hover:bg-[#4A291D] text-white transition-all rounded-xl shadow-md group-hover:shadow-lg w-[calc(100%-24px)] overflow-hidden">
+         <div className="flex items-center justify-center min-w-[24px]">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" x2="12" y1="3" y2="15"></line></svg>
+         </div>
+         <span className="whitespace-nowrap font-bold text-[13px] tracking-wide opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            New Scan
+         </span>
+      </button>
       
       {/* Navigation Links */}
       <NavItem to="/" icon={Home} isActive={path === '/'} label="Landing Page" />

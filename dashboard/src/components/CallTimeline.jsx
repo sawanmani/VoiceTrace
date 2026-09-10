@@ -1,6 +1,6 @@
 import { ShieldAlert, MoreHorizontal, ChevronDown, Filter } from 'lucide-react';
 
-export default function CallTimeline({ active, recentCalls = [] }) {
+export default function CallTimeline({ hasActiveCall, activeCallId, recentCalls = [] }) {
   // Format duration to mm:ss for display
   const formatSec = (s) => {
     if (!s) return '00:00:00';
@@ -26,9 +26,9 @@ export default function CallTimeline({ active, recentCalls = [] }) {
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 12px 16px 24px', position: 'relative' }}>
         {/* Vertical Timeline Line */}
-        {(active || recentCalls.length > 0) && <div style={{ position: 'absolute', left: 28, top: 24, bottom: 24, width: 2, background: 'var(--border)' }} />}
+        {(hasActiveCall || recentCalls.length > 0) && <div style={{ position: 'absolute', left: 28, top: 24, bottom: 24, width: 2, background: 'var(--border)' }} />}
 
-        {(!active && recentCalls.length === 0) && (
+        {(!hasActiveCall && recentCalls.length === 0) && (
           <div className="flex flex-col items-center justify-center h-full text-center p-6 text-[var(--text-secondary)] opacity-70 mt-10">
              <div className="w-12 h-12 rounded-full border-2 border-dashed border-[var(--border-glow)] flex items-center justify-center mb-3">
                <ShieldAlert size={20} />
@@ -38,12 +38,12 @@ export default function CallTimeline({ active, recentCalls = [] }) {
           </div>
         )}
 
-        {active && (
+        {hasActiveCall && (
           <div style={{ position: 'relative', paddingLeft: 24, marginBottom: 16 }}>
             <div style={{ position: 'absolute', left: -7, top: 4, width: 12, height: 12, borderRadius: '50%', background: 'var(--accent-green)', border: '2px solid var(--bg-card)', zIndex: 2, animation: 'pulse 1.5s infinite' }} />
             <div style={{ background: 'var(--bg-surface)', border: `1px solid var(--border-glow)`, borderRadius: 4, padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 2 }}>Call ID: [LIVE STREAM]</div>
+                <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 2 }}>Call ID: {activeCallId || '[LIVE STREAM]'}</div>
                 <div style={{ fontSize: 15, color: 'var(--text-secondary)', marginBottom: 2 }}>Time: In Progress</div>
                 <div style={{ fontSize: 15, color: 'var(--accent-green)', fontWeight: 600 }}>Active Recording</div>
               </div>

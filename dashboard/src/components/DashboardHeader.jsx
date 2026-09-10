@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Play, Activity, Settings2, ShieldCheck, ChevronDown, Bell, Radio, PhoneCall, HelpCircle, UserCircle } from 'lucide-react';
 import { API_BASE } from '../lib/constants';
 
-export default function DashboardHeader({ connected, active, sessionCount, onNewScan }) {
+export default function DashboardHeader({ connected, active, sessionCount }) {
   const [activeCalls, setActiveCalls] = useState(0);
 
   useEffect(() => {
@@ -65,11 +65,6 @@ export default function DashboardHeader({ connected, active, sessionCount, onNew
           <button className="hidden sm:flex items-center gap-2 px-5 py-2 bg-white hover:bg-[#F3EAE1] text-[#5C3425] border border-[#5C3425]/10 transition-all rounded-full shadow-sm hover:shadow-md group">
             <PhoneCall size={14} className="text-[#5C3425]/50 group-hover:text-[#5C3425] transition-colors" /> 
             <span className="text-xs font-semibold uppercase tracking-wider">Bridge</span>
-          </button>
-
-          <button onClick={onNewScan} className="relative group flex items-center gap-2 px-7 py-2.5 bg-[#5C3425] hover:bg-[#4A291D] text-white transition-all rounded-full shadow-lg shadow-[#5C3425]/30 hover:-translate-y-0.5 overflow-hidden">
-            <div className="absolute inset-0 bg-white/10 -translate-x-full group-hover:translate-x-full transition-transform duration-500 ease-out" />
-            <span className="text-xs font-bold uppercase tracking-wider whitespace-nowrap">New Scan</span>
           </button>
         </div>
         
