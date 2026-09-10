@@ -80,7 +80,7 @@ export default function Dashboard() {
                 <div style={{ flex: 1, minHeight: 0, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 4, padding: 12, display: 'flex', flexDirection: 'column' }}>
                    <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: 0.5, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
                      LIVE AUDIO STREAM 
-                     <span className="bg-gray-200 text-gray-700 px-2 py-0.5 rounded text-[10px] font-bold">{state.activeCallId || 'NO ACTIVE CALL'}</span>
+                     <span className="bg-gray-200 text-gray-700 px-2 py-0.5 rounded text-[10px] font-bold">{state.focusedCallId || state.activeCallId || 'NO ACTIVE CALL'}</span>
                    </div>
                    <div style={{ flex: 1, minHeight: 0 }}><Waveform active={active || !!state.activeCallId} score={state.riskScore} /></div>
                 </div>
