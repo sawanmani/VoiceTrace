@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Play, Activity, Settings2, ShieldCheck, ChevronDown, Bell, Radio, PhoneCall, HelpCircle, UserCircle } from 'lucide-react';
 import { API_BASE } from '../lib/constants';
 
 export default function DashboardHeader({ connected, active, sessionCount }) {
   const [activeCalls, setActiveCalls] = useState(0);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchHealth = () => {
@@ -62,7 +64,10 @@ export default function DashboardHeader({ connected, active, sessionCount }) {
             <span className="text-xs font-semibold uppercase tracking-wider">Monitor</span>
           </button>
           
-          <button className="hidden sm:flex items-center gap-2 px-5 py-2 bg-white hover:bg-[#F3EAE1] text-[#5C3425] border border-[#5C3425]/10 transition-all rounded-full shadow-sm hover:shadow-md group">
+          <button 
+            onClick={() => navigate('/call')}
+            className="hidden sm:flex items-center gap-2 px-5 py-2 bg-white hover:bg-[#F3EAE1] text-[#5C3425] border border-[#5C3425]/10 transition-all rounded-full shadow-sm hover:shadow-md group"
+          >
             <PhoneCall size={14} className="text-[#5C3425]/50 group-hover:text-[#5C3425] transition-colors" /> 
             <span className="text-xs font-semibold uppercase tracking-wider">Bridge</span>
           </button>

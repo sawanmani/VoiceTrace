@@ -14,7 +14,7 @@ export default function Sidebar() {
       <div className="flex items-center justify-center min-w-[60px] lg:min-w-[48px]">
         <Icon size={18} className={`${isActive ? 'text-white' : 'text-gray-400 group-hover:text-[#5C3425]/70'} transition-all duration-300 ${isActive && 'scale-110 drop-shadow-md'}`} />
       </div>
-      <span className={`hidden lg:block whitespace-nowrap font-semibold text-xs tracking-wide transition-opacity duration-300 ${isActive ? 'text-white opacity-100' : 'text-gray-500 opacity-0 group-hover:opacity-100 lg:group-hover:opacity-100'}`}>
+      <span className={`hidden lg:block whitespace-nowrap font-semibold text-xs tracking-wide transition-opacity duration-300 ${isActive ? 'text-white opacity-100' : 'text-[#5C3425]/80 opacity-0 group-hover:opacity-100 lg:group-hover:opacity-100'}`}>
         {label}
       </span>
     </Link>
