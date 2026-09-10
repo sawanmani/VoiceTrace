@@ -18,7 +18,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Phone, PhoneOff, Mic, MicOff, Video, VideoOff,
   Copy, Check, Shield, Users, AlertTriangle, Activity,
-  RefreshCw, ExternalLink
+  RefreshCw, ExternalLink, ArrowLeft
 } from 'lucide-react';
 import { useWebRTC } from '../hooks/useWebRTC';
 import CloneWarningOverlay from '../components/CloneWarningOverlay';
@@ -38,6 +38,7 @@ import CallRiskDisplay from '../components/CallRiskDisplay';
 
 function Lobby({ onJoin }) {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [roomInput, setRoomInput] = useState(searchParams.get('room') ?? '');
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
@@ -92,51 +93,57 @@ function Lobby({ onJoin }) {
   return (
     <div style={{
       minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: 'radial-gradient(ellipse at top, #0d1117 0%, #090c12 100%)',
-      padding: 24,
+      background: 'var(--bg-base)', fontFamily: 'var(--font-sans)', color: 'var(--text-primary)',
+      padding: 24, position: 'relative'
     }}>
-      {/* Background glow */}
-      <div style={{
-        position: 'fixed', top: '20%', left: '50%', transform: 'translateX(-50%)',
-        width: 600, height: 400, borderRadius: '50%',
-        background: 'radial-gradient(ellipse, rgba(139,92,246,0.08) 0%, transparent 70%)',
-        pointerEvents: 'none',
-      }} />
+      <button 
+        onClick={() => navigate('/dashboard')}
+        style={{
+          position: 'absolute', top: 24, left: 24,
+          background: 'var(--bg-card)', border: '1px solid var(--border)',
+          color: 'var(--text-secondary)', padding: '10px 16px', borderRadius: 8,
+          cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
+          fontWeight: 600, transition: 'all 0.2s', boxShadow: '0 2px 8px rgba(92,52,37,0.05)'
+        }}
+        onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-card-hover)'}
+        onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-card)'}
+      >
+        <ArrowLeft size={18} /> Back to Dashboard
+      </button>
 
       <div style={{
         width: '100%', maxWidth: 420,
-        background: 'rgba(255,255,255,0.03)',
-        backdropFilter: 'blur(20px)',
-        border: '1px solid rgba(255,255,255,0.08)',
+        background: 'var(--bg-card)',
+        border: '1px solid var(--border)',
         borderRadius: 20,
         padding: '36px 32px',
-        boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
+        boxShadow: '0 24px 64px rgba(92,52,37,0.08)',
         position: 'relative',
       }}>
         {/* VoiceTrace badge */}
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 8,
-            background: 'rgba(139,92,246,0.12)',
-            border: '1px solid rgba(139,92,246,0.3)',
+            background: 'rgba(92,52,37,0.08)',
+            border: '1px solid rgba(92,52,37,0.2)',
             borderRadius: 100, padding: '6px 16px', marginBottom: 16,
           }}>
-            <Shield size={14} color="#a78bfa" />
-            <span style={{ fontSize: 15, fontWeight: 800, letterSpacing: '0.15em', color: '#a78bfa', textTransform: 'uppercase' }}>
+            <Shield size={14} color="var(--accent-rust)" />
+            <span style={{ fontSize: 15, fontWeight: 800, letterSpacing: '0.15em', color: 'var(--accent-rust)', textTransform: 'uppercase' }}>
               VoiceTrace Live Call
             </span>
           </div>
-          <h1 style={{ fontSize: 28, fontWeight: 900, color: '#fff', margin: 0, letterSpacing: '-0.02em' }}>
+          <h1 style={{ fontSize: 28, fontWeight: 900, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>
             AI Clone Detection
           </h1>
-          <p style={{ fontSize: 17, color: 'rgba(255,255,255,0.45)', marginTop: 8, lineHeight: 1.6 }}>
+          <p style={{ fontSize: 17, color: 'var(--text-secondary)', marginTop: 8, lineHeight: 1.6 }}>
             Start a WebRTC call with real-time voice-clone risk scoring.
           </p>
         </div>
 
         {/* Room ID input */}
         <div style={{ marginBottom: 16 }}>
-          <label style={{ fontSize: 15, fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', display: 'block', marginBottom: 8 }}>
+          <label style={{ fontSize: 15, fontWeight: 700, letterSpacing: '0.1em', color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: 8 }}>
             Room ID
           </label>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -149,9 +156,9 @@ function Lobby({ onJoin }) {
               maxLength={12}
               style={{
                 flex: 1, height: 44, borderRadius: 10,
-                background: 'rgba(255,255,255,0.05)',
-                border: error ? '1px solid #ef4444' : '1px solid rgba(255,255,255,0.1)',
-                color: '#fff', fontSize: 19, fontWeight: 700,
+                background: 'rgba(0,0,0,0.02)',
+                border: error ? '1px solid #ef4444' : '1px solid var(--border)',
+                color: 'var(--text-primary)', fontSize: 19, fontWeight: 700,
                 letterSpacing: '0.1em', padding: '0 14px',
                 outline: 'none', transition: 'border 0.2s',
                 fontFamily: 'monospace',
@@ -163,10 +170,10 @@ function Lobby({ onJoin }) {
               title="Generate new Room ID"
               style={{
                 width: 44, height: 44, borderRadius: 10,
-                background: 'rgba(139,92,246,0.15)',
-                border: '1px solid rgba(139,92,246,0.3)',
+                background: 'rgba(92,52,37,0.05)',
+                border: '1px solid rgba(92,52,37,0.2)',
                 cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: '#a78bfa', transition: 'all 0.2s',
+                color: 'var(--accent-rust)', transition: 'all 0.2s',
               }}
             >
               <RefreshCw size={16} />
@@ -183,14 +190,14 @@ function Lobby({ onJoin }) {
         {urlForShare && (
           <div style={{
             marginBottom: 16,
-            background: 'rgba(139,92,246,0.06)',
-            border: '1px solid rgba(139,92,246,0.15)',
+            background: 'rgba(92,52,37,0.03)',
+            border: '1px solid rgba(92,52,37,0.1)',
             borderRadius: 10, padding: '10px 12px',
             display: 'flex', alignItems: 'center', gap: 8,
           }}>
-            <ExternalLink size={12} color="#a78bfa" style={{ flexShrink: 0 }} />
+            <ExternalLink size={12} color="var(--accent-rust)" style={{ flexShrink: 0 }} />
             <span style={{
-              flex: 1, fontSize: 15, color: 'rgba(255,255,255,0.4)',
+              flex: 1, fontSize: 15, color: 'var(--text-secondary)',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>
               {urlForShare}
@@ -200,7 +207,7 @@ function Lobby({ onJoin }) {
               title="Copy join link"
               style={{
                 background: 'none', border: 'none', cursor: 'pointer',
-                color: copied ? '#10b981' : '#a78bfa', display: 'flex',
+                color: copied ? '#10b981' : 'var(--accent-rust)', display: 'flex',
                 transition: 'color 0.2s',
               }}
             >
@@ -215,21 +222,21 @@ function Lobby({ onJoin }) {
           onClick={handleJoin}
           style={{
             width: '100%', height: 48, borderRadius: 12,
-            background: 'linear-gradient(135deg, #7c3aed, #4f46e5)',
+            background: 'linear-gradient(135deg, var(--accent-rust), #A26B49)',
             border: 'none', cursor: 'pointer', color: '#fff',
             fontSize: 18, fontWeight: 800, letterSpacing: '0.05em',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            boxShadow: '0 4px 20px rgba(139,92,246,0.4)',
+            boxShadow: '0 4px 14px rgba(196,138,102,0.3)',
             transition: 'transform 0.15s, box-shadow 0.15s',
           }}
-          onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 8px 28px rgba(139,92,246,0.5)'; }}
-          onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(139,92,246,0.4)'; }}
+          onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(196,138,102,0.45)'; }}
+          onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(196,138,102,0.3)'; }}
         >
           <Phone size={16} />
           {roomInput ? 'Join Room' : 'Create & Join'}
         </button>
 
-        <p style={{ textAlign: 'center', fontSize: 15, color: 'rgba(255,255,255,0.2)', marginTop: 16, lineHeight: 1.6 }}>
+        <p style={{ textAlign: 'center', fontSize: 15, color: 'var(--text-muted)', marginTop: 16, lineHeight: 1.6 }}>
           Audio is processed locally. Raw audio is never stored on the server.
           <br />SIH 2026 · PSID 260104
         </p>
@@ -280,6 +287,13 @@ export default function Call() {
     navigate('/call', { replace: true });
   }, [hangUp, navigate]);
 
+  const handleBackToDashboard = useCallback(() => {
+    if (callState !== 'idle' && callState !== 'ended') {
+      hangUp();
+    }
+    navigate('/dashboard');
+  }, [callState, hangUp, navigate]);
+
   // ── Lobby ──
   if (!activeRoomId || callState === 'idle') {
     return <Lobby onJoin={handleLobbyJoin} />;
@@ -290,28 +304,39 @@ export default function Call() {
 
   return (
     <div style={{
-      height: '100vh', background: '#080a0e',
+      height: '100vh', background: 'var(--bg-base)',
       display: 'flex', flexDirection: 'column',
-      fontFamily: 'Inter, system-ui, sans-serif',
+      fontFamily: 'var(--font-sans)', color: 'var(--text-primary)'
     }}>
       {/* Header */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '12px 20px',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
-        background: 'rgba(0,0,0,0.4)',
+        borderBottom: '1px solid var(--border)',
+        background: 'var(--bg-card)',
         backdropFilter: 'blur(12px)',
         flexShrink: 0,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Shield size={16} color="#a78bfa" />
-          <span style={{ fontSize: 17, fontWeight: 800, color: '#fff', letterSpacing: '0.05em' }}>
+          <button 
+            onClick={handleBackToDashboard}
+            title="Back to Dashboard"
+            style={{
+              background: 'transparent', border: 'none', cursor: 'pointer',
+              color: 'var(--text-secondary)', display: 'flex', alignItems: 'center',
+              padding: '4px', borderRadius: '4px'
+            }}
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <Shield size={16} color="var(--accent-rust)" />
+          <span style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '0.05em' }}>
             VoiceTrace
           </span>
           <span style={{
-            fontSize: 14, color: 'rgba(255,255,255,0.35)',
-            background: 'rgba(255,255,255,0.05)',
-            border: '1px solid rgba(255,255,255,0.08)',
+            fontSize: 14, color: 'var(--text-secondary)',
+            background: 'rgba(92,52,37,0.05)',
+            border: '1px solid var(--border)',
             borderRadius: 4, padding: '2px 7px', fontFamily: 'monospace',
           }}>
             ROOM {activeRoomId}
@@ -322,8 +347,8 @@ export default function Call() {
           {/* Connection state pill */}
           <div style={{
             display: 'flex', alignItems: 'center', gap: 5,
-            background: 'rgba(255,255,255,0.04)',
-            border: '1px solid rgba(255,255,255,0.08)',
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--border)',
             borderRadius: 100, padding: '4px 10px',
           }}>
             <div style={{
@@ -331,7 +356,7 @@ export default function Call() {
               background: callState === 'active' ? '#10b981' : callState === 'error' ? '#ef4444' : '#f59e0b',
               animation: callState === 'waiting' || callState === 'connecting' ? 'vt-blink 1.2s ease-in-out infinite' : 'none',
             }} />
-            <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '0.08em', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase' }}>
+            <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '0.08em', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
               {callState === 'idle' ? 'Ready' :
                callState === 'connecting' ? 'Connecting...' :
                callState === 'waiting' ? 'Waiting for peer...' :
@@ -340,7 +365,7 @@ export default function Call() {
                callState === 'ended' ? 'Call Ended' : 'Error'}
             </span>
           </div>
-          <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.25)', fontFamily: 'monospace' }}>
+          <span style={{ fontSize: 14, color: 'var(--text-muted)', fontFamily: 'monospace' }}>
             {role ? `(${role})` : ''}
           </span>
         </div>
@@ -440,16 +465,16 @@ export default function Call() {
         {/* Risk sidebar */}
         <div style={{
           width: 240, flexShrink: 0,
-          borderLeft: '1px solid rgba(255,255,255,0.06)',
-          background: 'rgba(255,255,255,0.015)',
+          borderLeft: '1px solid var(--border)',
+          background: 'var(--bg-card)',
           overflowY: 'auto',
           display: 'flex', flexDirection: 'column',
         }}>
           <div style={{
             padding: '12px 16px',
-            borderBottom: '1px solid rgba(255,255,255,0.06)',
+            borderBottom: '1px solid var(--border)',
             fontSize: 14, fontWeight: 800, letterSpacing: '0.15em',
-            color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase',
+            color: 'var(--text-secondary)', textTransform: 'uppercase',
             display: 'flex', alignItems: 'center', gap: 6,
           }}>
             <Activity size={11} />

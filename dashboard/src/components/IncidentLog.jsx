@@ -1,4 +1,4 @@
-import { MoreHorizontal } from 'lucide-react';
+import { MoreHorizontal, CheckCircle2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { API_BASE } from '../lib/constants';
 
@@ -24,6 +24,25 @@ export default function IncidentLog({ events }) {
       });
   }, []);
 
+  const handleResolve = async (incident_id) => {
+    if (!incident_id || incident_id.startsWith('LIVE-')) return;
+    try {
+      const res = await fetch(`${API_BASE}/incidents/${incident_id}/resolve`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Api-Key': import.meta.env.VITE_API_KEY || ''
+        },
+        body: JSON.stringify({ resolved_by: 'Dashboard User', notes: 'Resolved from UI' })
+      });
+      if (res.ok) {
+        setHistorical(prev => prev.map(h => h.incident_id === incident_id ? { ...h, status: 'RESOLVED' } : h));
+      }
+    } catch (e) {
+      console.error("Failed to resolve incident", e);
+    }
+  };
+
   const liveIncidents = events
     .filter(e => e.band === 'high' || e.band === 'medium')
     .map(e => ({
@@ -31,16 +50,17 @@ export default function IncidentLog({ events }) {
        timestamp: e.time,
        peak_risk_score: e.risk_score,
        band: e.band,
-       recommendation: e.message
+       recommendation: e.message,
+       status: 'ACTIVE'
     }));
 
-  // Combine and deduplicate by call_id if necessary, or just show both.
   const allIncidents = [...liveIncidents, ...historical.map(h => ({
     incident_id: h.incident_id,
     timestamp: new Date(h.timestamp).toLocaleTimeString(),
     peak_risk_score: h.peak_risk_score,
     band: h.band,
-    recommendation: h.recommendation
+    recommendation: h.recommendation,
+    status: h.status || 'OPEN'
   }))].slice(0, 10);
 
   return (
@@ -56,10 +76,25 @@ export default function IncidentLog({ events }) {
            </div>
         ) : (
            allIncidents.map((evt, idx) => (
-             <div key={idx} style={{ background: 'var(--bg-base)', padding: '8px 12px', borderRadius: 4, borderLeft: `3px solid ${evt.band === 'high' ? 'var(--accent-rust)' : '#F59E0B'}` }}>
-               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+             <div key={idx} style={{ background: 'var(--bg-base)', padding: '8px 12px', borderRadius: 4, borderLeft: `3px solid ${evt.band === 'high' ? 'var(--accent-rust)' : '#F59E0B'}`, opacity: evt.status === 'RESOLVED' ? 0.6 : 1 }}>
+               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, alignItems: 'center' }}>
                  <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>{evt.timestamp}</div>
-                 <div style={{ fontSize: 15, fontWeight: 800, color: evt.band === 'high' ? 'var(--accent-rust)' : '#F59E0B' }}>Score: {evt.peak_risk_score}</div>
+                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                   {evt.status === 'RESOLVED' ? (
+                     <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded">
+                       <CheckCircle2 size={12} /> RESOLVED
+                     </span>
+                   ) : (
+                     !evt.incident_id.startsWith('LIVE-') && (
+                       <button onClick={() => handleResolve(evt.incident_id)} className="text-[10px] font-bold text-gray-500 hover:text-emerald-600 transition-colors uppercase cursor-pointer">
+                         Mark Resolve
+                       </button>
+                     )
+                   )}
+                   <div style={{ fontSize: 15, fontWeight: 800, color: evt.band === 'high' ? 'var(--accent-rust)' : '#F59E0B' }}>
+                     Score: {evt.peak_risk_score}
+                   </div>
+                 </div>
                </div>
                <div style={{ fontSize: 16, fontWeight: 600 }}>{evt.recommendation}</div>
              </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet } from 'react-router-dom';
-import { WS_BASE } from '../lib/constants';
+import { WS_BASE, API_BASE } from '../lib/constants';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useMicStream } from '../hooks/useMicStream';
 import { useStore } from '../store/useStore';
@@ -24,6 +24,17 @@ export default function MainLayout() {
   const state = useStore();
   const handleEvent = useStore((s) => s.handleEvent);
   const finalizeCall = useStore((s) => s.finalizeCall);
+  const setRecentCalls = useStore((s) => s.setRecentCalls);
+
+  // Global App Hydration
+  useEffect(() => {
+    fetch(`${API_BASE}/history`, {
+      headers: { 'X-Api-Key': import.meta.env.VITE_API_KEY || '' }
+    })
+      .then(r => r.ok ? r.json() : [])
+      .then(calls => { if (Array.isArray(calls) && calls.length) setRecentCalls(calls) })
+      .catch(() => {})
+  }, [setRecentCalls]);
 
   // Persistent Mic streaming globally
   const { active, startMic, stopMic } = useMicStream(handleEvent, finalizeCall);
