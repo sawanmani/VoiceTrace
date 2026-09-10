@@ -42,7 +42,7 @@ def warmup_all() -> None:
     # 1. AASIST-L
     try:
         from detector.inference import load_model, DEFAULT_CHECKPOINT
-        model = load_model(DEFAULT_CHECKPOINT, device="cuda" if torch.cuda.is_available() else "cpu")
+        model = load_model(DEFAULT_CHECKPOINT, device="cpu")
         model.eval()
         _registry["aasist"] = model
         log.info("Warmed up AASIST-L ✓")
@@ -55,8 +55,8 @@ def warmup_all() -> None:
         import os
         transformer_weights = "models/weights/voicetransformer_epoch50.pth"
         if os.path.exists(transformer_weights):
-            t_model = VoiceTransformer(num_classes=4).to("cuda" if torch.cuda.is_available() else "cpu")
-            t_model.load_state_dict(torch.load(transformer_weights, map_location="cuda" if torch.cuda.is_available() else "cpu", weights_only=True))
+            t_model = VoiceTransformer(num_classes=4).to("cpu")
+            t_model.load_state_dict(torch.load(transformer_weights, map_location="cpu", weights_only=True))
             t_model.eval()
             _registry["transformer"] = t_model
             log.info("Warmed up VoiceTransformer ✓")
@@ -71,7 +71,7 @@ def warmup_all() -> None:
         asr = EncoderDecoderASR.from_hparams(
             source="speechbrain/asr-crdnn-rnnlm-librispeech",
             savedir="models/asr_cache",
-            run_opts={"device": "cuda" if torch.cuda.is_available() else "cpu"},
+            run_opts={"device": "cpu"},
         )
         _registry["asr"] = asr
         log.info("Warmed up SpeechBrain ASR ✓")
@@ -87,7 +87,7 @@ def warmup_all() -> None:
             from speechbrain.inference.ASR import EncoderDecoderASR
             asr = EncoderDecoderASR.from_hparams(
                 source=local_dir,
-                run_opts={"device": "cuda" if torch.cuda.is_available() else "cpu"},
+                run_opts={"device": "cpu"},
             )
             _registry["asr"] = asr
             log.info("Warmed up SpeechBrain ASR (no-symlink fallback) ✓")
@@ -100,7 +100,7 @@ def warmup_all() -> None:
         spk = EncoderClassifier.from_hparams(
             source="speechbrain/spkrec-ecapa-voxceleb",
             savedir="models/spk_cache",
-            run_opts={"device": "cuda" if torch.cuda.is_available() else "cpu"},
+            run_opts={"device": "cpu"},
         )
         _registry["spk"] = spk
         log.info("Warmed up ECAPA-TDNN speaker model ✓")
@@ -117,7 +117,7 @@ def warmup_all() -> None:
             from speechbrain.inference.speaker import EncoderClassifier
             spk = EncoderClassifier.from_hparams(
                 source=local_dir,
-                run_opts={"device": "cuda" if torch.cuda.is_available() else "cpu"},
+                run_opts={"device": "cpu"},
             )
             _registry["spk"] = spk
             log.info("Warmed up ECAPA-TDNN speaker model (no-symlink fallback) ✓")

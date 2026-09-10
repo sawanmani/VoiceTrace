@@ -11,8 +11,8 @@ export const createCallSlice = (set, get) => ({
   setRecentCalls: (calls) => set({ recentCalls: calls }),
 
   finalizeCall: (callId, durationSec) => {
-    const peak = get().getPeakRisk();
-    const windows = get().getWindowCount();
+    const peak = get().getPeakRisk(callId);
+    const windows = get().getWindowCount(callId);
     
     const band = bandFromScore(peak);
     

@@ -57,7 +57,7 @@ def main():
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = "cpu"
     model = load_model(DEFAULT_CHECKPOINT, device)
     model.eval()
     

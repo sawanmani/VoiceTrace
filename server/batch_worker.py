@@ -63,7 +63,7 @@ async def batch_inference_worker():
         if retry_count % 5 == 0:
             log.warning(f"Model load in progress... ({retry_count}s elapsed)")
         
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = "cpu"
     if transformer_model:
         log.info(f"Batch worker loaded VoiceTransformer on {device}")
         active_model = transformer_model

@@ -8,9 +8,11 @@ import { useStore } from '../store/useStore';
 import Sidebar from './Sidebar';
 import DashboardHeader from './DashboardHeader';
 import FileUpload from './FileUpload';
+import ScanResultsModal from './ScanResultsModal';
 
 export default function MainLayout() {
   const [now, setNow] = useState(new Date());
+  const [scanResult, setScanResult] = useState(null);
 
   // Global Clock
   useEffect(() => {
@@ -32,11 +34,8 @@ export default function MainLayout() {
 
   // Global File Upload Handling
   const handleFileResults = useCallback((data) => {
-    const windows = data.windows || [];
-    windows.forEach((w, i) => {
-      setTimeout(() => handleEvent(w), i * 200);
-    });
-  }, [handleEvent]);
+    setScanResult(data);
+  }, []);
 
   return (
     <div className="min-h-screen bg-[var(--bg-base)] text-[var(--text-primary)] font-sans">
@@ -45,7 +44,6 @@ export default function MainLayout() {
         connected={connected} 
         active={active} 
         sessionCount={state.sessionCount} 
-        onNewScan={() => document.getElementById('file-input')?.click()} 
       />
       
       {/* 
@@ -62,6 +60,7 @@ export default function MainLayout() {
       <div style={{ display: 'none' }}>
         <FileUpload onResults={handleFileResults} disabled={active} />
       </div>
+      {scanResult && <ScanResultsModal data={scanResult} onClose={() => setScanResult(null)} />}
     </div>
   );
 }

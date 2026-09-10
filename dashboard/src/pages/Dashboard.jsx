@@ -6,6 +6,7 @@ import { API_BASE } from '../lib/constants'
 import CallTimeline from '../components/CallTimeline'
 import AdvancedRiskGauge from '../components/AdvancedRiskGauge'
 import RadarAttribution from '../components/RadarAttribution'
+import RiskHeatMap from '../components/RiskHeatMap'
 import IncidentLog from '../components/IncidentLog'
 import FeedbackPanel from '../components/FeedbackPanel'
 import AlertCard from '../components/AlertCard'
@@ -44,7 +45,7 @@ export default function Dashboard() {
         
         {/* Left Column */}
         <div className="lg:h-full lg:overflow-hidden min-h-[300px] h-auto overflow-auto">
-          <CallTimeline active={active} recentCalls={state.recentCalls} />
+          <CallTimeline hasActiveCall={active || !!state.activeCallId} activeCallId={state.activeCallId} recentCalls={state.recentCalls} />
         </div>
 
         {/* Center Column */}
@@ -52,9 +53,28 @@ export default function Dashboard() {
           <div className="flex-none min-h-[250px] lg:min-h-[300px]">
              <AdvancedRiskGauge score={state.riskScore} liveness={state.liveness} callerIdentity={state.callerIdentity} challengeActive={state.challengeActive} />
           </div>
+          {Object.keys(state.activeCalls || {}).length > 1 && (
+            <div className="flex gap-2 overflow-x-auto py-1">
+              {Object.keys(state.activeCalls).map(id => (
+                <button 
+                  key={id}
+                  onClick={() => state.setFocusedCall(id)}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold border transition-colors flex items-center gap-2 ${state.focusedCallId === id ? 'bg-[#5C3425] text-white border-[#5C3425] shadow-md' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                >
+                  <div className={`w-2 h-2 rounded-full ${state.focusedCallId === id ? 'bg-emerald-400 animate-pulse' : 'bg-gray-300'}`} />
+                  {id}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="grid lg:grid-cols-2 grid-cols-1 gap-4 lg:gap-6 flex-1 min-h-0">
-             <div style={{ height: '100%' }}>
-               <RadarAttribution signals={state.signals} />
+             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', height: '100%' }}>
+               <div style={{ flex: 1, minHeight: 0 }}>
+                 <RadarAttribution signals={state.signals} />
+               </div>
+               <div style={{ flex: 1, minHeight: 0 }}>
+                 <RiskHeatMap events={state.events} activeCallId={state.focusedCallId} />
+               </div>
              </div>
              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', height: '100%' }}>
                 <div style={{ flex: 1, minHeight: 0, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 4, padding: 12, display: 'flex', flexDirection: 'column' }}>
@@ -62,7 +82,7 @@ export default function Dashboard() {
                      LIVE AUDIO STREAM 
                      <span className="bg-gray-200 text-gray-700 px-2 py-0.5 rounded text-[10px] font-bold">{state.activeCallId || 'NO ACTIVE CALL'}</span>
                    </div>
-                   <div style={{ flex: 1, minHeight: 0 }}><Waveform active={active} score={state.riskScore} /></div>
+                   <div style={{ flex: 1, minHeight: 0 }}><Waveform active={active || !!state.activeCallId} score={state.riskScore} /></div>
                 </div>
                 <div style={{ flex: 1, minHeight: 0, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 4, padding: 12, display: 'flex', flexDirection: 'column' }}>
                    <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: 0.5, marginBottom: 8 }}>SCORE TIMELINE</div>

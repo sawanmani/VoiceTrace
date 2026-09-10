@@ -15,7 +15,7 @@ def patch_warmup_all(monkeypatch):
         from detector.inference import load_model, DEFAULT_CHECKPOINT
         import torch
         if "aasist" not in _registry:
-            device = "cuda" if torch.cuda.is_available() else "cpu"
+            device = "cpu"
             _registry["aasist"] = load_model(DEFAULT_CHECKPOINT, device)
             
     import server._model_cache

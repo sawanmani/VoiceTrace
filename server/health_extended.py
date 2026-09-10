@@ -41,8 +41,8 @@ async def get_system_status() -> dict:
 
     try:
         import torch
-        gpu_available = torch.cuda.is_available()
-        gpu_name = torch.cuda.get_device_name(0) if gpu_available else None
+        gpu_available = False
+        gpu_name = None if gpu_available else None
     except Exception:
         gpu_available = False
         gpu_name = None
