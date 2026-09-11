@@ -35,6 +35,7 @@ services:
     container_name: voicetrace_asterisk
     ports:
       - "5060:5060/udp"
+      - "5060:5060/tcp"
       - "10000-10100:10000-10100/udp"
     environment:
       - SIP_PROVIDER_HOST=${SIP_PROVIDER_HOST:-sip2sip.info}

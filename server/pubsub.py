@@ -99,6 +99,8 @@ class _RedisBroker:
                     for message_id, message_data in messages:
                         last_ids[channel] = message_id.decode()
                         payload = message_data.get(b"data", b"")
+                        if isinstance(payload, bytes):
+                            payload = payload.decode('utf-8')
                         for cb in list(self._listeners.get(channel, set())):
                             try:
                                 await cb(payload)
