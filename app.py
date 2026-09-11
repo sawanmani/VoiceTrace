@@ -43,7 +43,25 @@ def analyze_audio(audio_path):
         return f"❌ Audio decode failed: {e}", "{}"
 
     call_id = f"gradio-{uuid.uuid4().hex[:8]}"
-    results = detector.push_full(audio)
+    
+    # ── ZeroGPU Fix ──
+    # ZeroGPU patches torch.cuda.is_available() to return True.
+    # We must move the model to the GPU *inside* this decorated function,
+    # and move it back to CPU afterwards to prevent background workers from crashing.
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    detector._device = device
+    
+    # Force load model from cache
+    if detector._model is None:
+        from detector.streaming import _get_model
+        detector._model, detector._is_transformer = _get_model(detector._checkpoint, device)
+    
+    try:
+        detector._model.to(device)
+        results = detector.push_full(audio)
+    finally:
+        # Move back to CPU so the global cache is safe for background workers
+        detector._model.to("cpu")
 
     if not results:
         return "❌ Audio too short — need at least 1 second", "{}"
