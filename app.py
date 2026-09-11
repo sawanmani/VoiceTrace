@@ -96,3 +96,8 @@ demo = gr.Interface(
 # ZeroGPU's supervisor specifically inspects this object. If it's a FastAPI instance,
 # the supervisor fails to find the GPU endpoints and kills the container.
 app = demo
+# Mount FastAPI INSIDE Gradio (both work on same port 7860)
+app = gr.mount_gradio_app(fastapi_app, demo, path="/")
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=7860)
