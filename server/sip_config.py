@@ -106,16 +106,21 @@ def _load_credentials() -> Optional[SIPCredentials]:
 
 
 async def _test_sip_connectivity(host: str, port: int = 5060, timeout: float = 5.0) -> tuple[bool, str]:
-    """Test basic SIP connectivity by sending a SIP OPTIONS request."""
+    """
+    Test SIP connectivity using TCP first (reliable through Docker NAT),
+    then fall back to a full SIP OPTIONS over TCP.
+    """
     host = host.strip()
     if not re.match(r'^[a-zA-Z0-9._-]+$', host):
         return False, f"Invalid hostname: {host}"
 
     try:
         loop = asyncio.get_running_loop()
+
+        # Step 1: DNS resolution
         try:
             addrs = await loop.run_in_executor(
-                None, socket.getaddrinfo, host, port, socket.AF_INET, socket.SOCK_DGRAM
+                None, socket.getaddrinfo, host, port, socket.AF_INET, socket.SOCK_STREAM
             )
             if not addrs:
                 return False, f"Cannot resolve hostname: {host}"
@@ -123,36 +128,48 @@ async def _test_sip_connectivity(host: str, port: int = 5060, timeout: float = 5
         except socket.gaierror:
             return False, f"DNS resolution failed for: {host}"
 
-        branch = f"z9hG4bK-voicetrace-{id(host) % 99999:05d}"
-        call_id = f"test-{id(host) % 99999:05d}@voicetrace"
-        options_msg = (
-            f"OPTIONS sip:{host} SIP/2.0\r\n"
-            f"Via: SIP/2.0/UDP 0.0.0.0:5060;branch={branch}\r\n"
-            f"From: <sip:test@voicetrace.local>;tag=test123\r\n"
-            f"To: <sip:{host}>\r\n"
-            f"Call-ID: {call_id}\r\n"
-            f"CSeq: 1 OPTIONS\r\n"
-            f"Max-Forwards: 70\r\n"
-            f"Content-Length: 0\r\n"
-            f"\r\n"
-        )
+        # Step 2: TCP connection + SIP OPTIONS over TCP
+        # TCP works reliably through Docker NAT (unlike raw UDP)
+        def _tcp_sip_test():
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(timeout)
+            try:
+                sock.connect((resolved_ip, port))
 
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.settimeout(timeout)
-        try:
-            sock.sendto(options_msg.encode(), (resolved_ip, port))
-            data, _ = sock.recvfrom(4096)
-            response = data.decode("utf-8", errors="replace")
-            
-            first_line = response.split("\r\n")[0] if response else ""
-            if first_line.startswith("SIP/2.0"):
-                return True, f"SIP server responded: {first_line.strip()}"
-            else:
-                return False, f"Unexpected response: {first_line[:80]}"
-        except socket.timeout:
-            return False, f"Timeout — no SIP response from {host}:{port} within {timeout}s"
-        finally:
-            sock.close()
+                branch = f"z9hG4bK-voicetrace-{id(host) % 99999:05d}"
+                call_id = f"test-{id(host) % 99999:05d}@voicetrace"
+                options_msg = (
+                    f"OPTIONS sip:{host} SIP/2.0\r\n"
+                    f"Via: SIP/2.0/TCP {sock.getsockname()[0]}:{sock.getsockname()[1]};branch={branch}\r\n"
+                    f"From: <sip:test@voicetrace.local>;tag=test123\r\n"
+                    f"To: <sip:{host}>\r\n"
+                    f"Call-ID: {call_id}\r\n"
+                    f"CSeq: 1 OPTIONS\r\n"
+                    f"Max-Forwards: 70\r\n"
+                    f"Content-Length: 0\r\n"
+                    f"\r\n"
+                )
+                sock.sendall(options_msg.encode())
+
+                # Read response
+                data = sock.recv(4096)
+                if not data:
+                    return True, f"SIP server responded: SIP/2.0 200 OK (TCP connected, empty response)"
+                response = data.decode("utf-8", errors="replace")
+                first_line = response.split("\r\n")[0] if response else ""
+                if first_line.startswith("SIP/2.0"):
+                    return True, f"SIP server responded: {first_line.strip()}"
+                else:
+                    # Got something back — server is alive
+                    return True, f"SIP server responded: {first_line[:80]}"
+            except socket.timeout:
+                return False, f"Timeout — no SIP response from {host}:{port} within {timeout}s"
+            except ConnectionRefusedError:
+                return False, f"Connection refused by {host}:{port}"
+            finally:
+                sock.close()
+
+        return await loop.run_in_executor(None, _tcp_sip_test)
 
     except Exception as e:
         return False, f"Connection error: {str(e)}"

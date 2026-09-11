@@ -99,23 +99,46 @@ export function useWebRTC({ roomId, onRiskEvent }) {
 
     const source = ctx.createMediaStreamSource(stream);
     
-    // Modern AudioWorklet instead of deprecated ScriptProcessor
-    await ctx.audioWorklet.addModule('/pcm-processor.js');
-    const proc = new AudioWorkletNode(ctx, 'pcm-processor');
-    processorRef.current = proc;
+    // Try modern AudioWorklet, fall back to deprecated ScriptProcessor
+    let processorConnected = false;
+    try {
+      await ctx.audioWorklet.addModule('/pcm-processor.js');
+      const proc = new AudioWorkletNode(ctx, 'pcm-processor');
+      processorRef.current = proc;
 
-    proc.port.onmessage = (e) => {
-      const pcm = e.data; // Float32Array from processor
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(pcm.buffer.slice(pcm.byteOffset, pcm.byteOffset + pcm.byteLength));
-      }
-    };
+      proc.port.onmessage = (e) => {
+        const pcm = e.data; // Float32Array from processor
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(pcm.buffer.slice(pcm.byteOffset, pcm.byteOffset + pcm.byteLength));
+        }
+      };
 
-    source.connect(proc);
-    const mute = ctx.createGain();
-    mute.gain.value = 0;
-    proc.connect(mute);
-    mute.connect(ctx.destination);
+      source.connect(proc);
+      const mute = ctx.createGain();
+      mute.gain.value = 0;
+      proc.connect(mute);
+      mute.connect(ctx.destination);
+      processorConnected = true;
+    } catch (workletErr) {
+      console.warn('AudioWorklet failed, using ScriptProcessor fallback:', workletErr);
+    }
+
+    if (!processorConnected) {
+      // Fallback: ScriptProcessorNode (deprecated but universally supported)
+      const proc = ctx.createScriptProcessor(MIC_BUFFER_SIZE, 1, 1);
+      processorRef.current = proc;
+
+      proc.onaudioprocess = (e) => {
+        const pcm = e.inputBuffer.getChannelData(0);
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(pcm.buffer.slice(pcm.byteOffset, pcm.byteOffset + pcm.byteLength));
+        }
+      };
+
+      source.connect(proc);
+      proc.connect(ctx.destination);
+    }
+
     _log('detection side-channel started');
     } catch (err) {
       console.error('Detection setup failed:', err);
@@ -237,11 +260,26 @@ export function useWebRTC({ roomId, onRiskEvent }) {
     setCallState('connecting');
 
     try {
-      // 1. Acquire local media
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-        video: true,
-      });
+      // 1. Acquire local media (try video, fallback to audio-only)
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: true,
+        });
+      } catch (videoErr) {
+        _log('video unavailable (%s), falling back to audio-only', videoErr.name);
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+            video: false,
+          });
+        } catch (audioErr) {
+          console.error('[WebRTC] microphone access denied:', audioErr);
+          setCallState('error');
+          return;
+        }
+      }
       localStreamRef.current = stream;
       setLocalStream(stream);
 

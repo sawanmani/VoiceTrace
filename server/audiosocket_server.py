@@ -108,6 +108,10 @@ async def _handle_connection(reader: asyncio.StreamReader, writer: asyncio.Strea
                     audio_chunk = decode_asterisk_chunk(payload)
                     # Push into StreamingDetector buffer — BatchWorker picks it up
                     state.detector.push(audio_chunk)
+                    
+                    # Echo audio back to Asterisk so caller hears it and NAT stays open
+                    writer.write(header_bytes + payload)
+                    await writer.drain()
                 except Exception as exc:
                     log.warning("audiosocket  call=%s  decode error: %s",
                                call_id, exc)
