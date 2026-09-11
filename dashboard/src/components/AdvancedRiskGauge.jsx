@@ -1,9 +1,21 @@
-import { MoreHorizontal, Mic, UserCheck, ShieldCheck, AlertCircle } from 'lucide-react';
+import { MoreHorizontal, Mic, ShieldCheck, AlertCircle } from 'lucide-react';
 
 export default function AdvancedRiskGauge({ score, liveness, callerIdentity, challengeActive }) {
   const rGauge = 70;
   const circGauge = Math.PI * rGauge; // half circle
   const offsetGauge = circGauge * (1 - (score / 100));
+
+  // Determine liveness badge styles
+  const livenessSecure = liveness > 0.8;
+  const livenessBadgeStyle = {
+    padding: '2px 6px',
+    borderRadius: 4,
+    fontWeight: 600,
+    marginLeft: 4,
+    fontSize: 12,
+    background: livenessSecure ? '#dcfce7' : '#fef9c3',
+    color: livenessSecure ? '#15803d' : '#a16207',
+  };
 
   return (
     <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 4, height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -13,10 +25,10 @@ export default function AdvancedRiskGauge({ score, liveness, callerIdentity, cha
         <MoreHorizontal size={16} color="var(--text-secondary)" />
       </div>
 
-      <div className="flex flex-col lg:flex-row flex-1 items-center p-4 gap-6 lg:gap-0">
+      <div style={{ display: 'flex', flexDirection: 'row', flex: 1, alignItems: 'center', padding: 16, gap: 0, flexWrap: 'wrap' }}>
         
         {/* Left: Concentric Arcs */}
-        <div className="flex-1 flex justify-center w-full">
+        <div style={{ flex: 1, display: 'flex', justifyContent: 'center', width: '100%', position: 'relative' }}>
           <svg viewBox="0 0 100 100" style={{ width: '100%', height: '100%', transform: 'rotate(180deg)' }}>
             {[40, 32, 24, 16].map((r, i) => (
               <circle key={i} cx="50" cy="50" r={r} fill="none" stroke={i === 0 ? 'var(--accent-rust)' : 'var(--border)'} strokeWidth="4" strokeDasharray={Math.PI * r} strokeDashoffset={i % 2 === 0 ? 0 : 20} strokeLinecap="round" />
@@ -29,7 +41,7 @@ export default function AdvancedRiskGauge({ score, liveness, callerIdentity, cha
 
         {/* Center: Speedometer Gauge */}
         <div style={{ flex: 1.5, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-          <div className="relative w-full max-w-[200px] flex flex-col items-center">
+          <div style={{ position: 'relative', width: '100%', maxWidth: 200, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <svg viewBox="0 0 180 100" style={{ width: '100%' }}>
               {/* Background Track */}
               <path d="M 10 90 A 80 80 0 0 1 170 90" fill="none" stroke="var(--border)" strokeWidth="12" strokeLinecap="round" />
@@ -51,7 +63,7 @@ export default function AdvancedRiskGauge({ score, liveness, callerIdentity, cha
                 )
               })}
             </svg>
-            <div className="absolute bottom-2 left-0 right-0 text-center">
+            <div style={{ position: 'absolute', bottom: 8, left: 0, right: 0, textAlign: 'center' }}>
               <div style={{ fontSize: 40, fontWeight: 800, lineHeight: 1 }}>{score}</div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', marginTop: 4, fontSize: 14, fontWeight: 700, color: 'var(--text-secondary)' }}>
@@ -64,30 +76,32 @@ export default function AdvancedRiskGauge({ score, liveness, callerIdentity, cha
             <div style={{ fontSize: 15, fontWeight: 700 }}>New Liveness & Voiceprint Layer</div>
             <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginTop: 4 }}>
               PASSIVE Liveness Score: {liveness ? Math.round(liveness * 100) : '--'}%{' '}
-              <span className={`px-1.5 py-0.5 rounded font-semibold ml-1 ${liveness > 0.8 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                {liveness > 0.8 ? 'SECURE' : 'WARNING'}
+              <span style={livenessBadgeStyle}>
+                {livenessSecure ? 'SECURE' : 'WARNING'}
               </span><br/>
-              <span style={{ color: challengeActive ? 'var(--accent-rust)' : 'var(--text-secondary)' }} className="inline-flex items-center mt-1">
-                <AlertCircle size={10} style={{ marginRight: 4 }}/> Active Challenge Status: <span className="font-bold ml-1">{challengeActive ? 'REQUIRED' : 'STANDBY'}</span>
+              <span style={{ color: challengeActive ? 'var(--accent-rust)' : 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', marginTop: 4 }}>
+                <AlertCircle size={10} style={{ marginRight: 4 }}/> Active Challenge Status: <span style={{ fontWeight: 700, marginLeft: 4 }}>{challengeActive ? 'REQUIRED' : 'STANDBY'}</span>
               </span>
             </div>
           </div>
         </div>
 
         {/* Right: Verification layers */}
-        <div className="flex-[1.5] flex flex-col gap-3 w-full lg:pl-4 lg:border-l border-[var(--border)]">
+        <div style={{ flex: 1.5, display: 'flex', flexDirection: 'column', gap: 12, width: '100%', paddingLeft: 16, borderLeft: '1px solid var(--border)' }}>
           <div>
             <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 4 }}>CALLER IDENTITY VERIFICATION</div>
-            <div className="mb-3"><span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold">OPT-IN ENABLED</span></div>
+            <div style={{ marginBottom: 12 }}>
+              <span style={{ background: '#dbeafe', color: '#1d4ed8', padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700 }}>OPT-IN ENABLED</span>
+            </div>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
               <div style={{ background: '#E5E7EB', padding: 6, borderRadius: '50%' }}><UserCircle color="#4B5563" size={16} /></div>
               <div>
                 <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>Voiceprint Match:</div>
                 <div style={{ fontSize: 14 }}>
                   {callerIdentity === null ? (
-                    <span className="bg-gray-200 text-gray-700 px-2 py-0.5 rounded font-bold">NOT ENROLLED / NEW CALLER</span>
+                    <span style={{ background: '#e5e7eb', color: '#374151', padding: '2px 8px', borderRadius: 4, fontWeight: 700 }}>NOT ENROLLED / NEW CALLER</span>
                   ) : (
-                    <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded font-bold">{Math.round(callerIdentity * 100)}% MATCH</span>
+                    <span style={{ background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: 4, fontWeight: 700 }}>{Math.round(callerIdentity * 100)}% MATCH</span>
                   )}
                 </div>
               </div>
@@ -104,6 +118,5 @@ export default function AdvancedRiskGauge({ score, liveness, callerIdentity, cha
   );
 }
 
-// Quick dummy icons for UserCircle / Fingerprint to avoid more imports
+// Quick dummy icons for UserCircle to avoid more imports
 const UserCircle = ({ size, color }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="10" r="3"/><path d="M7 20.662V19a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1.662"/></svg>;
-const Fingerprint = ({ size, color }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2"><path d="M2 12C2 6.477 6.477 2 12 2s10 4.477 10 10"/><path d="M5 12a7 7 0 0 1 14 0"/><path d="M8 12a4 4 0 0 1 8 0"/><path d="M11 12a1 1 0 0 1 2 0"/></svg>;
