@@ -5,15 +5,6 @@ import torch
 import tempfile
 import soundfile as sf
 
-from server.main import app as fastapi_app
-from fastapi import Request
-
-# ZeroGPU requires at least one FastAPI route to be decorated with @spaces.GPU 
-# if the main app is a FastAPI instance. This dummy route satisfies the startup check.
-@fastapi_app.get("/_zerogpu_dummy")
-@spaces.GPU(duration=10)
-def _zerogpu_dummy(request: Request):
-    return {"status": "ok"}
 
 @spaces.GPU(duration=60)
 def analyze_audio(audio_path):
@@ -101,5 +92,7 @@ demo = gr.Interface(
     allow_flagging="never",
 )
 
-# Mount FastAPI INSIDE Gradio (both work on same port 7860)
-app = gr.mount_gradio_app(fastapi_app, demo, path="/")
+# Export the Gradio Interface directly for Hugging Face Spaces.
+# ZeroGPU's supervisor specifically inspects this object. If it's a FastAPI instance,
+# the supervisor fails to find the GPU endpoints and kills the container.
+app = demo
