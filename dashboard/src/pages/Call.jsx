@@ -24,15 +24,15 @@ import { useWebRTC } from '../hooks/useWebRTC';
 import CloneWarningOverlay from '../components/CloneWarningOverlay';
 import { THRESHOLD_HIGH, THRESHOLD_MEDIUM, API_BASE, WS_BASE } from '../lib/constants';
 
+import VideoTile from '../components/VideoTile';
+import CallControls from '../components/CallControls';
+import CallRiskDisplay from '../components/CallRiskDisplay';
+
 // ── Helpers ───────────────────────────────────────────────────────────────
 
 function genRoomId() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
 }
-
-import VideoTile from '../components/VideoTile';
-import CallControls from '../components/CallControls';
-import CallRiskDisplay from '../components/CallRiskDisplay';
 
 // ── Lobby (room create / join) ────────────────────────────────────────────
 
