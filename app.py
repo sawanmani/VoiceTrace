@@ -6,7 +6,14 @@ import tempfile
 import soundfile as sf
 
 from server.main import app as fastapi_app
+from fastapi import Request
 
+# ZeroGPU requires at least one FastAPI route to be decorated with @spaces.GPU 
+# if the main app is a FastAPI instance. This dummy route satisfies the startup check.
+@fastapi_app.get("/_zerogpu_dummy")
+@spaces.GPU(duration=10)
+def _zerogpu_dummy(request: Request):
+    return {"status": "ok"}
 
 @spaces.GPU(duration=60)
 def analyze_audio(audio_path):
