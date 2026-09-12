@@ -37,8 +37,8 @@ services:
       - "10000-10100:10000-10100/udp"
     environment:
       - SIP_PROVIDER_HOST=${SIP_PROVIDER_HOST:-sip2sip.info}
-      - SIP_USERNAME=${SIP_USERNAME:-}
-      - SIP_PASSWORD=${SIP_PASSWORD:-}
+      - SIP_USERNAME=${SIP_USERNAME}
+      - SIP_PASSWORD=${SIP_PASSWORD}
     restart: always
 
   turn:
