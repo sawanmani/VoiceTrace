@@ -40,5 +40,11 @@ else
     echo "[entrypoint] Trunk sections commented out"
 fi
 
+cat <<EOF > /etc/asterisk/rtp.conf
+[general]
+rtpstart=10000
+rtpend=10100
+EOF
+
 echo "[entrypoint] Starting Asterisk..."
 exec asterisk -fvvv
